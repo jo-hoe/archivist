@@ -1,0 +1,22 @@
+# Full taxonomy tree for the "declared" strategy (alternate to "scan").
+# Use with: --taxonomy-strategy declared --taxonomy-file examples/taxonomy.yaml
+# Folders are created under the target root as files are filed into them.
+name: ""
+description: Root
+children:
+  - name: invoice
+    description: Bills, receipts, and invoices
+    children:
+      - name: car
+        description: Vehicle purchases, servicing, fuel, and repair invoices
+      - name: home
+        description: Household bills — utilities, rent, maintenance
+  - name: insurance
+    description: Insurance policies, claims, and insurer correspondence
+  - name: notes
+    description: Personal and meeting notes
+    children:
+      - name: work
+        description: Work-related notes and meeting minutes
+  - name: archive
+    description: Older material kept for reference, not active use

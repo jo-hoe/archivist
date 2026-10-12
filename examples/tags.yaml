@@ -1,0 +1,14 @@
+# Candidate tags for the Noul (default) or Choice tagging strategy.
+# Pass with --tags-file examples/tags.yaml (or set tags-file in config.yaml).
+# A good description sharpens the model's yes/no judgment per tag.
+tags:
+  - name: finance
+    description: Invoices, receipts, bank statements, taxes — anything money-related
+  - name: insurance
+    description: Insurance policies, claims, and correspondence with insurers
+  - name: urgent
+    description: Time-sensitive items that need prompt action or have a deadline
+  - name: reference
+    description: Durable reference material to keep but not act on
+  - name: personal
+    description: Personal correspondence, notes, and private documents

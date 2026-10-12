@@ -1,0 +1,12 @@
+# Folder descriptions for the "scan" taxonomy strategy (the default).
+# Keys are slash-separated paths relative to the target root. Describe what
+# belongs in each folder so the model can choose a destination well.
+# Pass with --descriptions-file examples/descriptions.yaml.
+descriptions:
+  invoice: Bills, receipts, and invoices
+  invoice/car: Vehicle purchases, servicing, fuel, and repair invoices
+  invoice/home: Household bills — utilities, rent, maintenance
+  insurance: Insurance policies, claims, and insurer correspondence
+  notes: Personal and meeting notes
+  notes/work: Work-related notes and meeting minutes
+  archive: Older material kept for reference, not active use

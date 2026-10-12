@@ -1,0 +1,187 @@
+# ============================================================================
+# archivist — example configuration
+# ============================================================================
+#
+# Copy this file to `config.yaml` (archivist auto-loads ./config.yaml), or point
+# at it explicitly with `--config path/to/config.yaml`.
+#
+# PRECEDENCE (lowest to highest): this file < ARCHIVIST_* env vars < CLI flags.
+# Every key below has a matching flag (`--<key>`) and env var
+# (`ARCHIVIST_<KEY>` with dashes as underscores, e.g. model-url ->
+# ARCHIVIST_MODEL_URL). Anything you omit falls back to the built-in default
+# shown in the comments.
+#
+# archivist NEVER deletes a source file: it writes the destination, verifies it,
+# and only then removes the original. Destination name collisions are resolved
+# by suffixing (doc.md -> doc-1.md), so an existing file is never overwritten.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Input / output
+# ---------------------------------------------------------------------------
+
+# source (REQUIRED) — what to process. Either:
+#   * a directory to walk for markdown files (.md, .markdown), or
+#   * a text file listing one input path per line (blank lines and lines
+#     starting with '#' are ignored).
+source: ./in
+
+# recursive — when `source` is a directory, also walk its subdirectories.
+# default: false
+recursive: false
+
+# target (REQUIRED) — the root directory files are sorted into. The folder tree
+# under this root is the taxonomy archivist chooses from (see `taxonomy-*`).
+# Created automatically if it does not exist.
+target: ./out
+
+# ---------------------------------------------------------------------------
+# Model (System 1 Decision Model) — the AI backend
+# ---------------------------------------------------------------------------
+# archivist talks to a model server over the shared /v1/systemone protocol.
+# von and laya both implement it; von is the default.
+
+# model — which implementation: "von" (default) or "laya".
+model: von
+
+# model-url — base URL of the running model server.
+# default: http://localhost:8000  (in Docker Compose this is http://von:8000)
+model-url: http://localhost:8000
+
+# model-id — optional model identifier sent to the server (server-specific).
+# default: "" (server picks its configured model)
+model-id: ""
+
+# api-key — optional bearer token if the model server requires auth.
+# default: "" (no Authorization header)
+# Prefer the env var ARCHIVIST_API_KEY over committing secrets to this file.
+api-key: ""
+
+# language — model language override: "en" or "multilingual".
+# default: "" (use the model's own default — "en")
+language: ""
+
+# model-device — compute-device HINT for the model server:
+#   auto (default) | cuda | mps | cpu | xpu | openvino
+# This is a MODEL concern only. "auto"/empty means "let the server choose".
+# Honored by models that accept a device hint (laya); for von the device is
+# selected server-side via its own VON_DEVICE environment variable, so set that
+# in Docker Compose / the von service rather than here.
+model-device: auto
+
+# max-state-tokens — override the model's input token budget. The document body
+# is the model's "state"; longer input is handled per `on-overflow`.
+# default: 0 (use the model's built-in limit — von 8192, laya 512)
+max-state-tokens: 0
+
+# max-choice-options — override the model's per-choice option cap.
+# default: 0 (use the model's built-in limit — von 255, laya 100)
+max-choice-options: 0
+
+# ---------------------------------------------------------------------------
+# Limit handling
+# ---------------------------------------------------------------------------
+
+# on-overflow — what to do when a document exceeds the token budget:
+#   error (default) — fail that file, leave it untouched, continue the batch.
+#   crop            — middle-truncate the body (keep head + tail) and proceed,
+#                     flagging the file as truncated in the report.
+on-overflow: error
+
+# on-options — what to do when a choice has more options than the model allows:
+#   error (default) — fail that decision.
+#   adapt           — deterministically trim the option list and proceed.
+on-options: error
+
+# ---------------------------------------------------------------------------
+# Tagging  (frontmatter)
+# ---------------------------------------------------------------------------
+# Tagging runs ONLY when `tags-file` is set. With no tags file, archivist sorts
+# files into folders but writes no `tags` key. If a file ends up with zero tags,
+# the `tags` key is omitted entirely rather than written empty.
+
+# tags-file — YAML listing candidate tags. Enables tagging when set.
+# Shape:
+#   tags:
+#     - name: finance
+#       description: Invoices, receipts, bank statements, anything money-related
+#     - name: urgent
+#       description: Time-sensitive items that need prompt attention
+# default: "" (tagging disabled)
+tags-file: ""
+
+# tagging-strategy — how tags are chosen:
+#   noul (default) — ask a yes/no question per candidate tag; apply every tag
+#                    whose confidence meets `tagging-threshold` (0..n tags).
+#   choice         — pick exactly ONE best tag from the list.
+tagging-strategy: noul
+
+# tagging-threshold — confidence required to apply a tag (noul strategy). 0..1.
+# default: 0.7
+tagging-threshold: 0.7
+
+# override-meta — when merging the chosen tags into existing frontmatter:
+#   false (default) — keep any pre-existing values; never clobber the user's.
+#   true            — replace pre-existing values with archivist's.
+override-meta: false
+
+# ---------------------------------------------------------------------------
+# Directory sorting (taxonomy + descent)
+# ---------------------------------------------------------------------------
+# archivist walks the folder tree from `target` downward, asking the model a
+# Choice question at each level to pick the next subfolder, until it stops.
+
+# taxonomy-strategy — where the folder structure comes from:
+#   scan (default) — scan the real directories under `target`. Give each folder
+#                    a description via `descriptions-file` for better choices.
+#   declared       — read the whole tree (names + descriptions) from a single
+#                    YAML given by `taxonomy-file`; folders are created as used.
+taxonomy-strategy: scan
+
+# descriptions-file — (scan strategy) YAML of path-keyed folder descriptions.
+# Keys are slash-separated paths relative to `target`.
+# Shape:
+#   descriptions:
+#     invoice:      Bills, receipts, and invoices
+#     invoice/car:  Vehicle-related invoices and service records
+#     notes:        Personal and meeting notes
+# default: "" (folders used with no description)
+descriptions-file: ""
+
+# taxonomy-file — (declared strategy) YAML defining the full tree.
+# Shape:
+#   name: ""            # root (maps to `target`)
+#   description: Root
+#   children:
+#     - name: invoice
+#       description: Bills and receipts
+#       children:
+#         - name: car
+#           description: Vehicle invoices
+# REQUIRED when taxonomy-strategy is "declared".
+taxonomy-file: ""
+
+# descent-strategy — how archivist decides to stop descending:
+#   threshold (default) — descend while the best child's confidence meets
+#                         `descent-threshold`; otherwise stop and file here.
+#   stayhere            — add a synthetic "stay in this folder" option to each
+#                         Choice; stop when the model picks it.
+descent-strategy: threshold
+
+# descent-threshold — confidence required to descend into a subfolder. 0..1.
+# default: 0.6
+descent-threshold: 0.6
+
+# ---------------------------------------------------------------------------
+# Run behavior
+# ---------------------------------------------------------------------------
+
+# no-preview — skip the preview list and the confirmation prompt, process
+# immediately. Set true for non-interactive runs (Docker uses this).
+# default: false
+no-preview: false
+
+# dry-run — compute destinations and tags and print the plan, but move/write
+# nothing. Great for seeing what a config would do before committing.
+# default: false
+dry-run: false

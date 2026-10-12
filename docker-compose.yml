@@ -1,0 +1,51 @@
+# archivist + von (default System 1 model) with a persistent weights volume.
+#
+# Quick start (CPU):
+#   mkdir -p in out            # drop markdown into ./in, results land in ./out
+#   docker compose up --build  # von downloads weights into the volume on first run
+#
+# GPU (NVIDIA): add the override file, which requests all GPUs and sets the
+# device to CUDA:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#
+# The weights live in the named volume `model-weights`; a second `up` reuses
+# them and skips the ~multi-GB download.
+
+services:
+  von:
+    image: ghcr.io/wfzyx/von:cpu
+    env_file:
+      - compose/von.env
+    volumes:
+      # HF_HOME points here (see von.env); a populated volume short-circuits the
+      # download on restart.
+      - model-weights:/weights
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 300s
+    expose:
+      - "8000"
+
+  archivist:
+    build:
+      context: .
+    depends_on:
+      von:
+        condition: service_healthy
+    environment:
+      ARCHIVIST_MODEL: von
+      ARCHIVIST_MODEL_URL: http://von:8000
+      ARCHIVIST_NO_PREVIEW: "true"
+    volumes:
+      - ./in:/data/in
+      - ./out:/data/out
+      # Optional: mount your config and taxonomy/tags files.
+      # - ./config.yaml:/data/config.yaml:ro
+    # `run` reads env + any mounted /data/config.yaml.
+    command: ["run"]
+
+volumes:
+  model-weights: {}

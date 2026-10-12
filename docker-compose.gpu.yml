@@ -1,0 +1,19 @@
+# GPU override for NVIDIA hosts. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#
+# Requires the NVIDIA Container Toolkit on the host. Switches the von image to
+# its CUDA build and reserves all GPUs for it.
+
+services:
+  von:
+    image: ghcr.io/wfzyx/von:cuda
+    environment:
+      # Force CUDA server-side (overrides VON_DEVICE=auto from von.env).
+      VON_DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]

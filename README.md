@@ -1,0 +1,151 @@
+# archivist
+
+Sort markdown files into a folder tree and tag them in YAML frontmatter — using
+**System 1 Decision Models** (von, laya) that return *typed answers with
+calibrated probabilities* instead of free text. No LLM cost, latency, or
+hallucination; just a model that answers "which folder?" and "does this tag
+apply?" and tells you how confident it is.
+
+- **Sorts** each file by walking your target folder tree top-down, asking the
+  model a Choice question at each level until it's confident enough to stop.
+- **Tags** files from a candidate list you provide, writing them into standard
+  YAML frontmatter — merged into existing frontmatter, never clobbering your
+  values by default.
+- **Never loses files.** Every move writes the destination, verifies it, and
+  only then removes the source. Name collisions are suffixed (`doc.md` →
+  `doc-1.md`); an existing file is never overwritten.
+- Runs on **Windows, macOS, and Linux**, as a CLI, an interactive TUI, or in
+  Docker (CPU or GPU).
+
+## How it works
+
+1. **Index** the whole input set up front (one snapshot), so a file is never
+   processed twice in a run.
+2. For each file: parse frontmatter → send the body to the model as "state" →
+   **descend** the folder tree via Choice questions → optionally **decide tags**
+   → merge frontmatter → **move** the file atomically.
+
+The two bundled models, [von](https://github.com/wfzyx/von) (default) and
+[laya](https://github.com/NandhaKishorM/laya), speak the same `/v1/systemone`
+protocol (see [systemonemodels.org](https://systemonemodels.org/)), so switching
+between them is just configuration.
+
+## Quick start
+
+### Option A — Docker Compose (batteries included)
+
+Runs the von model server next to archivist. Weights download once into a named
+volume and are reused on later runs.
+
+```bash
+mkdir -p in out            # drop .md files into ./in; results land in ./out
+docker compose up --build  # von fetches weights on first run, then processes ./in
+```
+
+On an NVIDIA GPU host (needs the NVIDIA Container Toolkit):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+### Option B — local binary
+
+You need a running model server. The simplest is von via Docker:
+
+```bash
+docker run --rm -p 8000:8000 -v archivist-weights:/weights \
+  -e HF_HOME=/weights ghcr.io/wfzyx/von:cpu
+```
+
+Then build and run archivist against it:
+
+```bash
+go build -o archivist ./cmd/archivist
+
+# Preview what would happen (prompts before moving anything):
+./archivist run --source ./in --target ./out --model-url http://localhost:8000
+
+# Interactive terminal UI:
+./archivist tui --source ./in --target ./out
+```
+
+Add tagging and folder descriptions:
+
+```bash
+./archivist run \
+  --source ./in --target ./out \
+  --tags-file examples/tags.yaml \
+  --descriptions-file examples/descriptions.yaml
+```
+
+## Configuration
+
+Three layers, lowest precedence first: **config file < `ARCHIVIST_*` env vars <
+CLI flags**.
+
+- **Config file:** copy [`config.example.yaml`](./config.example.yaml) to
+  `config.yaml` (auto-loaded from the working directory) or pass
+  `--config path.yaml`. The example documents every option.
+- **Env vars:** every flag has one — `--model-url` →
+  `ARCHIVIST_MODEL_URL`. Handy in Docker; keep secrets like `ARCHIVIST_API_KEY`
+  out of files.
+- **Flags:** run `./archivist run --help` for the full list.
+
+### Key options
+
+| Flag | Default | What it does |
+|------|---------|--------------|
+| `--source` | — | Directory to walk, or a text file listing input paths (required) |
+| `--target` | — | Root folder to sort into; its subfolders are the taxonomy (required) |
+| `--recursive` | `false` | Walk subdirectories of `--source` |
+| `--model` | `von` | Model backend: `von` or `laya` |
+| `--model-url` | `http://localhost:8000` | Model server base URL |
+| `--model-device` | `auto` | Compute-device hint for the model (`auto`/`cuda`/`mps`/`cpu`) |
+| `--tags-file` | — | YAML of candidate tags; **enables tagging** when set |
+| `--tagging-strategy` | `noul` | `noul` (per-tag yes/no, 0..n tags) or `choice` (pick one) |
+| `--tagging-threshold` | `0.7` | Confidence needed to apply a tag |
+| `--taxonomy-strategy` | `scan` | `scan` existing folders, or `declared` from a YAML tree |
+| `--descriptions-file` | — | Per-folder descriptions for the `scan` strategy |
+| `--descent-strategy` | `threshold` | `threshold` or `stayhere` stop logic |
+| `--descent-threshold` | `0.6` | Confidence needed to descend into a subfolder |
+| `--override-meta` | `false` | Replace existing frontmatter values instead of keeping them |
+| `--on-overflow` | `error` | `error` or `crop` when a document exceeds the token budget |
+| `--on-options` | `error` | `error` or `adapt` when a choice exceeds the option cap |
+| `--dry-run` | `false` | Compute the plan but move/write nothing |
+| `--no-preview` | `false` | Skip the preview + confirmation (set in Docker) |
+
+### Tagging
+
+Tagging runs **only** when you pass `--tags-file`. See
+[`examples/tags.yaml`](./examples/tags.yaml). With the default **noul** strategy,
+each tag whose yes/no confidence meets the threshold is applied; a file that
+earns no tags gets **no `tags` key** at all. The **choice** strategy picks
+exactly one tag.
+
+### Taxonomy
+
+- **scan** (default): archivist reads the real folders under `--target`. Give
+  each a description with `--descriptions-file`
+  ([`examples/descriptions.yaml`](./examples/descriptions.yaml)) so the model
+  chooses well.
+- **declared**: define the whole tree in one YAML
+  ([`examples/taxonomy.yaml`](./examples/taxonomy.yaml)) via
+  `--taxonomy-strategy declared --taxonomy-file …`.
+
+## Re-running
+
+Across runs archivist always re-decides and moves files to their current best
+location — it keeps no manifest. Running again after you add folders or change
+thresholds reshuffles files accordingly; running with no changes is a no-op.
+
+## Development
+
+```bash
+go build ./...
+go test ./...
+go vet ./...
+```
+
+CI runs the test suite on Linux, macOS, and Windows for every push and PR to
+`main`. Dependabot proposes weekly dependency updates; minor/patch bumps
+auto-merge once CI passes.

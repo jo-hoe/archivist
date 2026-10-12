@@ -1,0 +1,18 @@
+# Build artifacts
+/.gotmp/
+/archivist
+/archivist.exe
+/dist/
+
+# Local data / scratch
+/in/
+/out/
+*.log
+
+# Local config (may contain secrets). The documented template is tracked.
+/config.yaml
+!config.example.yaml
+
+# OS
+.DS_Store
+Thumbs.db
