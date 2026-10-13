@@ -161,10 +161,10 @@ archivist talks to any model that implements the `/v1/systemone` protocol. Two a
 bundled; they behave identically from archivist's perspective — same flags, same
 config keys, same Docker experience.
 
-| Model | Type | Default tokens | Notes |
-|-------|------|---------------|-------|
-| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 | Auto-selects OpenVINO CPU → CUDA → MPS. CUDA image not published; build locally from source for CUDA/ROCm. |
-| **laya** | built from `Dockerfile.laya` | 512 | One image, all devices. Set `LAYA_DEVICE=cuda/mps/xpu/cpu` in `compose/laya.env`. |
+| Model | Type | Max input tokens | Notes |
+|-------|------|-----------------|-------|
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 (~32K chars) | Auto-selects OpenVINO CPU → CUDA → MPS. CUDA image not published; build locally from source for CUDA/ROCm. |
+| **laya** | built from `Dockerfile.laya` | 512 (~2K chars) | One image, all devices. Set `LAYA_DEVICE=cuda/mps/xpu/cpu` in `compose/laya.env`. For longer docs use `--on-overflow crop`. |
 
 ### Switching models
 
