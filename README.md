@@ -39,12 +39,12 @@ entry](./CONTRIBUTING.md#adding-a-new-system-1-model) — nothing else changes.
 
 ### Option A — Docker Compose (batteries included)
 
-Weights download once into a named volume on first run and are reused on later runs.
+Weights download once into `./weights/` on first run and are reused on later runs.
 archivist waits for the model to become healthy before processing any files.
 
 **von (default):**
 ```bash
-mkdir -p in out            # drop .md files into ./in; results land in ./out
+mkdir -p in out weights    # drop .md files into ./in; results land in ./out
 docker compose up --build
 ```
 
@@ -70,7 +70,7 @@ Start any model server locally and point archivist at it. The flags are identica
 
 ```bash
 # Start von:
-docker run --rm -p 8000:8000 -v archivist-weights:/weights \
+docker run --rm -p 8000:8000 -v ./weights:/weights \
   -e HF_HOME=/weights ghcr.io/wfzyx/von:cpu
 
 # Or start laya (requires Python 3.10+):
@@ -211,6 +211,6 @@ go test ./...
 go vet ./...
 ```
 
-CI runs the test suite on Linux, macOS, and Windows for every push and PR to
+CI runs the test and lint suites on Linux, macOS, and Windows for every push and PR to
 `main`. Dependabot proposes weekly dependency updates; minor/patch bumps
 auto-merge once CI passes.
