@@ -82,7 +82,7 @@ func (ix Indexer) readList(listPath string) ([]Entry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open list %q: %w", listPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	seen := map[string]bool{}
 	var entries []Entry

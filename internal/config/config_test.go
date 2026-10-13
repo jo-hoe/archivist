@@ -7,6 +7,20 @@ import (
 	"testing"
 )
 
+func mustWriteFile(t *testing.T, path string, content []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("write %q: %v", path, err)
+	}
+}
+
+func mustMkdirAll(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o750); err != nil {
+		t.Fatalf("mkdir %q: %v", path, err)
+	}
+}
+
 func TestValidateRequiresSourceAndTarget(t *testing.T) {
 	c := Defaults()
 	if err := c.Validate(); err == nil {
@@ -43,7 +57,7 @@ func TestValidateThresholdRange(t *testing.T) {
 func TestLoadTagSet(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tags.yml")
-	os.WriteFile(path, []byte("tags:\n  - name: urgent\n    description: Needs attention\n  - name: finance\n"), 0o644)
+	mustWriteFile(t, path, []byte("tags:\n  - name: urgent\n    description: Needs attention\n  - name: finance\n"))
 
 	set, err := LoadTagSet(path)
 	if err != nil {
@@ -57,7 +71,7 @@ func TestLoadTagSet(t *testing.T) {
 func TestLoadTagSetRejectsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "empty.yml")
-	os.WriteFile(path, []byte("tags: []\n"), 0o644)
+	mustWriteFile(t, path, []byte("tags: []\n"))
 	if _, err := LoadTagSet(path); err == nil {
 		t.Fatal("expected error for empty tag list")
 	}
@@ -66,7 +80,7 @@ func TestLoadTagSetRejectsEmpty(t *testing.T) {
 func TestLoadDescriptions(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "desc.yml")
-	os.WriteFile(path, []byte("descriptions:\n  invoice: Bills\n  invoice/car: Cars\n"), 0o644)
+	mustWriteFile(t, path, []byte("descriptions:\n  invoice: Bills\n  invoice/car: Cars\n"))
 
 	d, err := LoadDescriptions(path)
 	if err != nil {
@@ -86,9 +100,9 @@ func TestLoadDescriptionsEmptyPath(t *testing.T) {
 
 func TestBuildWiresPipeline(t *testing.T) {
 	target := t.TempDir()
-	os.MkdirAll(filepath.Join(target, "invoice"), 0o755)
+	mustMkdirAll(t, filepath.Join(target, "invoice"))
 	inDir := t.TempDir()
-	os.WriteFile(filepath.Join(inDir, "a.md"), []byte("body"), 0o644)
+	mustWriteFile(t, filepath.Join(inDir, "a.md"), []byte("body"))
 
 	c := Defaults()
 	c.Source = inDir
@@ -112,7 +126,7 @@ func TestBuildWiresPipeline(t *testing.T) {
 func TestBuildTaggingDisabledWithoutFile(t *testing.T) {
 	target := t.TempDir()
 	inDir := t.TempDir()
-	os.WriteFile(filepath.Join(inDir, "a.md"), []byte("body"), 0o644)
+	mustWriteFile(t, filepath.Join(inDir, "a.md"), []byte("body"))
 
 	c := Defaults()
 	c.Source = inDir

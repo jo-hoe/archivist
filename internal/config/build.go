@@ -33,7 +33,7 @@ func Build(ctx context.Context, c Config) (*Built, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve target: %w", err)
 	}
-	if err := os.MkdirAll(target, 0o755); err != nil {
+	if err := os.MkdirAll(target, 0o750); err != nil {
 		return nil, fmt.Errorf("create target %q: %w", target, err)
 	}
 

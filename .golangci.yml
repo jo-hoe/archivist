@@ -1,0 +1,84 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - errcheck        # unchecked errors
+    - govet           # go vet checks
+    - ineffassign     # unused assignments
+    - staticcheck     # staticcheck suite (SA*, S*, QF*, ST*, simplify)
+    - unused          # unused code
+
+    # Style / idiom
+    - misspell        # common spelling mistakes
+    - whitespace      # trailing whitespace / blank lines
+
+    # Complexity
+    - cyclop          # cyclomatic complexity
+    - gocognit        # cognitive complexity
+
+    # Security
+    - gosec           # security issues (G* rules)
+
+    # Bugs
+    - bodyclose       # unclosed http response bodies
+    - noctx           # http requests without context
+    - rowserrcheck    # sql.Rows.Err() not checked
+
+  settings:
+    cyclop:
+      # Allow up to 15; table-driven tests legitimately exceed 10.
+      max-complexity: 15
+
+    gocognit:
+      min-complexity: 20
+
+    gosec:
+      excludes:
+        # G304: file inclusion via variable — intentional in fileops (user-supplied paths).
+        - G304
+
+    errcheck:
+      # fmt.F* on io.Writer in CLI output — ignoring the return error is
+      # idiomatic for terminal writes (errors are unrecoverable).
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/jo-hoe/archivist
+
+issues:
+  # Don't fail on generated files or vendored code.
+  exclude-dirs:
+    - vendor
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # os.WriteFile / os.MkdirAll in test helpers always write to t.TempDir();
+    # 0644/0755 permissions are appropriate there, not a security concern.
+    - path: _test\.go
+      linters: [gosec]
+      text: "G30[16]"
+
+    # errcheck on test setup calls — failures surface as test errors downstream.
+    - path: _test\.go
+      linters: [errcheck]
+
+# Per-path overrides for complexity linters.
+linters-settings: {}
