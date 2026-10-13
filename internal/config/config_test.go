@@ -140,3 +140,45 @@ func TestBuildTaggingDisabledWithoutFile(t *testing.T) {
 		t.Fatal("tagging should be disabled without a tags file")
 	}
 }
+
+func TestBuildSourceInsideTargetExcludesFromScan(t *testing.T) {
+	// When source is a subdirectory of target, it must not appear as a
+	// taxonomy destination. Build should succeed and the scan provider should
+	// have the source directory in ExcludeDirs.
+	target := t.TempDir()
+	inputDir := filepath.Join(target, "input")
+	mustMkdirAll(t, inputDir)
+	mustMkdirAll(t, filepath.Join(target, "invoices"))
+	mustWriteFile(t, filepath.Join(inputDir, "a.md"), []byte("body"))
+
+	c := Defaults()
+	c.Source = inputDir
+	c.Target = target
+
+	built, err := Build(context.Background(), c)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if len(built.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(built.Entries))
+	}
+}
+
+func TestBuildTargetInsideRecursiveSourceErrors(t *testing.T) {
+	// target inside a recursive source is dangerous: the indexer would walk
+	// files being moved. Build must return an error in this case.
+	source := t.TempDir()
+	target := filepath.Join(source, "out")
+	mustMkdirAll(t, target)
+	mustWriteFile(t, filepath.Join(source, "a.md"), []byte("body"))
+
+	c := Defaults()
+	c.Source = source
+	c.Target = target
+	c.Recursive = true
+
+	_, err := Build(context.Background(), c)
+	if err == nil {
+		t.Fatal("expected error when target is inside recursive source")
+	}
+}

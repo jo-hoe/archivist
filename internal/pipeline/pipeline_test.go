@@ -67,7 +67,7 @@ func TestPipelineSortsAndTags(t *testing.T) {
 	}}, 0.7)
 	// vehicle applies (0.9), urgent does not (0.2).
 	fake.NoulFn = func(_ model.State, q model.NoulQuestion) (model.NoulAnswer, error) {
-		if q.Criteria == "Car-related" {
+		if strings.Contains(q.Instructions, `"vehicle"`) {
 			return model.NoulAnswer{Noul: 0.9, NoulRaw: 0.9}, nil
 		}
 		return model.NoulAnswer{Noul: 0.2, NoulRaw: 0.2}, nil
