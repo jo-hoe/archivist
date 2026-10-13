@@ -6,15 +6,13 @@ package model
 //
 // Language selection is server-side: the von checkpoint is chosen at server
 // start (e.g. VON_MODEL=multilingual). archivist does not forward a lang field
-// on the wire for von; the language field in Capabilities reflects the server's
-// configured default ("en" unless overridden).
+// on the wire for von.
 //
 // See github.com/wfzyx/von.
 
 const (
 	vonDefaultMaxStateTokens   = 8192
 	vonDefaultMaxChoiceOptions = 255
-	vonLanguage                = "en"
 )
 
 func newVon(cfg Config) (System1, error) {
@@ -31,7 +29,6 @@ func newVon(cfg Config) (System1, error) {
 		caps: Capabilities{
 			MaxStateTokens:   pick(cfg.MaxStateTokens, vonDefaultMaxStateTokens),
 			MaxChoiceOptions: pick(cfg.MaxChoiceOptions, vonDefaultMaxChoiceOptions),
-			Language:         pickStr(cfg.Language, vonLanguage),
 		},
 	}, nil
 }
