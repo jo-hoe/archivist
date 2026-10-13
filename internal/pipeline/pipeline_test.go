@@ -19,7 +19,7 @@ func setupTarget(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for _, d := range []string{"invoice/car", "invoice/house", "insurance"} {
-		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil { //nolint:gosec // G301: test temp dir
 			t.Fatal(err)
 		}
 	}
@@ -169,10 +169,10 @@ func TestPipelineContinuesOnFileError(t *testing.T) {
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // G301: test temp dir
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil { //nolint:gosec // G306: test fixture
 		t.Fatal(err)
 	}
 }

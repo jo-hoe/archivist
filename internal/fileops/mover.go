@@ -145,7 +145,7 @@ func (m *Mover) renameOrCopy(oldpath, newpath string) error {
 	if rerr != nil {
 		return rerr
 	}
-	if werr := os.WriteFile(newpath, data, m.filePerm()); werr != nil {
+	if werr := os.WriteFile(newpath, data, m.filePerm()); werr != nil { //nolint:gosec // G703: newpath is derived from uniqueDest, not user input
 		return werr
 	}
 	return os.Remove(oldpath)
