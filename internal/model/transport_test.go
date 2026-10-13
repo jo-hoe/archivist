@@ -107,6 +107,36 @@ func TestNoulRawFallsBackToNoul(t *testing.T) {
 	}
 }
 
+func TestNoulCriteriaIsSentAsDict(t *testing.T) {
+	// The /v1/systemone protocol requires noul criteria to be a dict, not a
+	// bare string. Verify the client wraps the description correctly.
+	body := `{"q":{"noul":0.9,"confidence":0.9},"usage":{"input_tokens":3}}`
+	m, captured := newTestClient(t, "von", http.StatusOK, body, nil)
+
+	_, err := m.Noul(context.Background(), State{Body: "x"}, NoulQuestion{
+		Instructions: "is it finance?",
+		Criteria:     "Bills and invoices",
+	})
+	if err != nil {
+		t.Fatalf("Noul: %v", err)
+	}
+	if len(*captured) == 0 {
+		t.Fatal("no request captured")
+	}
+	q, ok := (*captured)[0].Questions["q"]
+	if !ok {
+		t.Fatal("question 'q' not in request")
+	}
+	// Criteria must be a map (dict), not a string.
+	criteriaMap, ok := q.Criteria.(map[string]interface{})
+	if !ok {
+		t.Fatalf("criteria should be a map, got %T: %v", q.Criteria, q.Criteria)
+	}
+	if criteriaMap["description"] != "Bills and invoices" {
+		t.Fatalf("criteria[description] unexpected: %v", criteriaMap["description"])
+	}
+}
+
 func TestOverflowRefusedMaps422(t *testing.T) {
 	m, _ := newTestClient(t, "von", http.StatusUnprocessableEntity, "context window exceeded", nil)
 	_, err := m.Choice(context.Background(), State{Body: "x"}, ChoiceQuestion{
@@ -125,6 +155,36 @@ func TestTruncationHeaderSignalsTruncated(t *testing.T) {
 	})
 	if !errors.Is(err, ErrStateTruncated) {
 		t.Fatalf("expected ErrStateTruncated, got %v", err)
+	}
+}
+
+func TestLayaNoulCriteriaDictWithBodyState(t *testing.T) {
+	// laya uses bodyStateEncoder + nested "answers"; verify both work together
+	// with the dict-wrapped noul criteria.
+	body := `{"answers":{"q":{"noul":0.75,"confidence":0.75}},"usage":{"input_tokens":5}}`
+	m, captured := newTestClient(t, "laya", http.StatusOK, body, nil)
+
+	_, err := m.Noul(context.Background(), State{Body: "insurance renewal"}, NoulQuestion{
+		Instructions: "is this insurance-related?",
+		Criteria:     "Insurance policies and claims",
+	})
+	if err != nil {
+		t.Fatalf("laya Noul: %v", err)
+	}
+	req := (*captured)[0]
+	// laya wraps state as {"body": ...}.
+	stateMap, ok := req.State.(map[string]any)
+	if !ok || stateMap["body"] != "insurance renewal" {
+		t.Fatalf("laya state should be {body:...}, got %#v", req.State)
+	}
+	// criteria must be a dict.
+	q := req.Questions["q"]
+	cm, ok := q.Criteria.(map[string]interface{})
+	if !ok {
+		t.Fatalf("criteria should be a map, got %T", q.Criteria)
+	}
+	if cm["description"] != "Insurance policies and claims" {
+		t.Fatalf("criteria[description] unexpected: %v", cm["description"])
 	}
 }
 
