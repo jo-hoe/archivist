@@ -1,7 +1,7 @@
 # archivist — model server + archivist in one compose file.
 #
 # Default (von, CPU/OpenVINO):
-#   mkdir -p in out
+#   mkdir -p in out weights
 #   docker compose up --build
 #
 # Laya instead of von:
@@ -14,17 +14,20 @@
 #   Note: von's CUDA image is not pre-published and must be built locally;
 #   laya uses the same image for all devices — LAYA_DEVICE is enough.
 #
-# Weights are stored in a named volume and reused across runs.
+# Model weights land in ./weights/ (bind mount, gitignored) — visible on disk,
+# reused across runs, no Docker volume management needed.
 
 services:
 
   # ── init ────────────────────────────────────────────────────────────────────
-  # One-shot: ensures the weights volume is writable before any model starts.
+  # One-shot: ensures ./weights is writable by model server processes (uid 1001).
+  # Required on Linux hosts where bind-mounted directories are owned by root.
+  # On macOS/Windows with Docker Desktop this is a no-op (user-space file sharing).
   init-weights:
     image: alpine:3
     user: root
     volumes:
-      - model-weights:/weights
+      - ./weights:/weights
     command: ["sh", "-c", "chown -R 1001:1001 /weights && chmod 755 /weights"]
     restart: "no"
 
@@ -37,7 +40,7 @@ services:
     profiles: ["", "von"]
     env_file: [compose/von.env]
     volumes:
-      - model-weights:/weights
+      - ./weights:/weights
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -65,7 +68,7 @@ services:
     profiles: ["laya"]
     env_file: [compose/laya.env]
     volumes:
-      - model-weights:/weights
+      - ./weights:/weights
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -108,6 +111,3 @@ services:
       # Optional: mount your config and taxonomy/tags files.
       # - ./config.yaml:/data/config.yaml:ro
     command: ["run"]
-
-volumes:
-  model-weights: {}

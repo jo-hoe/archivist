@@ -8,6 +8,7 @@
 # Local data / scratch
 /in/
 /out/
+/weights/
 *.log
 
 # Local config (may contain secrets). The documented template is tracked.
