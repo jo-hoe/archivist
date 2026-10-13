@@ -12,7 +12,7 @@ USER 1001
 
 ENV LAYA_HOST=0.0.0.0 \
     LAYA_PORT=8000 \
-    LAYA_DEVICE=auto \
+    LAYA_DEVICE=cpu \
     LAYA_PRELOAD=1 \
     LAYA_DEFAULT_MODEL=multilingual \
     HF_HOME=/weights/hub
