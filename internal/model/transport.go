@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	systemOnePath  = "/v1/systemone"
-	defaultTimeout = 60 * time.Second
+	systemOnePath = "/v1/systemone"
+	// defaultTimeout covers first-inference model compilation (OpenVINO/CUDA can
+	// take 2-3 minutes on cold start); subsequent requests are much faster.
+	defaultTimeout = 5 * time.Minute
 	// singleQuestionKey is the question name used for the single-question
 	// convenience methods (Choice/Noul/Score).
 	singleQuestionKey = "q"
