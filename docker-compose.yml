@@ -12,8 +12,22 @@
 # them and skips the ~multi-GB download.
 
 services:
+  # One-shot init: ensures the weights volume is writable by von (uid 1001)
+  # before it tries to download the model from Hugging Face. Exits immediately
+  # after chown; Docker marks it as completed (exit 0) so von can start.
+  init-weights:
+    image: alpine:3
+    user: root
+    volumes:
+      - model-weights:/weights
+    command: ["sh", "-c", "chown -R 1001:1001 /weights && chmod 755 /weights"]
+    restart: "no"
+
   von:
     image: ghcr.io/wfzyx/von:cpu
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
     env_file:
       - compose/von.env
     volumes:
@@ -28,8 +42,9 @@ services:
       start_period: 300s
     expose:
       - "8000"
-    ports:
-      - "8000:8000"
+    # Uncomment to reach the model server from the host (e.g. for local dev):
+    # ports:
+    #   - "8000:8000"
 
   archivist:
     build:
