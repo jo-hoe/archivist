@@ -40,7 +40,9 @@ func (c *client) Choice(ctx context.Context, state State, q ChoiceQuestion) (Cho
 func (c *client) Noul(ctx context.Context, state State, q NoulQuestion) (NoulAnswer, error) {
 	wq := wireQuestion{Type: wireTypeNoul, Instructions: q.Instructions}
 	if q.Criteria != "" {
-		wq.Criteria = q.Criteria
+		// The /v1/systemone protocol requires criteria to be a dictionary for
+		// noul questions; wrap a plain description string into one.
+		wq.Criteria = map[string]string{"description": q.Criteria}
 	}
 	ans, err := c.trans.ask(ctx, state, wq, c.extras)
 	if err != nil {

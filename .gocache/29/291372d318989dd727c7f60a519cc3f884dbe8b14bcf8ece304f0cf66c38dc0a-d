@@ -1,0 +1,3 @@
+./build.go
+./config.go
+./load.go

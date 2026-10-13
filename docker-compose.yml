@@ -21,13 +21,15 @@ services:
       # download on restart.
       - model-weights:/weights
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 300s
     expose:
       - "8000"
+    ports:
+      - "8000:8000"
 
   archivist:
     build:
@@ -42,6 +44,7 @@ services:
     volumes:
       - ./in:/data/in
       - ./out:/data/out
+      - ./examples:/data/examples:ro
       # Optional: mount your config and taxonomy/tags files.
       # - ./config.yaml:/data/config.yaml:ro
     # `run` reads env + any mounted /data/config.yaml.
