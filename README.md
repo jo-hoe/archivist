@@ -163,8 +163,8 @@ config keys, same Docker experience.
 
 | Model | Type | Max input tokens | Notes |
 |-------|------|-----------------|-------|
-| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 (~32K chars) | Auto-selects OpenVINO CPU → CUDA → MPS. CUDA image not published; build locally from source for CUDA/ROCm. |
-| **laya** | built from `Dockerfile.laya` | 512 (~2K chars) | One image, all devices. Set `LAYA_DEVICE=cuda/mps/xpu/cpu` in `compose/laya.env`. For longer docs use `--on-overflow crop`. |
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 (~32K chars) | Input-only limit. Auto-selects OpenVINO CPU → CUDA → MPS. CUDA image not published; build locally from source for CUDA/ROCm. |
+| **laya** | built from `Dockerfile.laya` | 512 (~2K chars) | Input-only limit (no output tokens — answers are typed values, not generated text). One image, all devices. Set `LAYA_DEVICE=cuda/mps/xpu/cpu` in `compose/laya.env`. For longer docs use `--on-overflow crop`. |
 
 ### Switching models
 
