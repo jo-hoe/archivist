@@ -50,6 +50,22 @@ linters:
         - fmt.Fprintln
         - fmt.Fprint
 
+  exclusions:
+    # Don't fail on vendored code.
+    paths:
+      - vendor
+
+    rules:
+      # os.WriteFile / os.MkdirAll in test helpers always write to t.TempDir();
+      # 0644/0755 permissions are appropriate there, not a security concern.
+      - path: _test\.go
+        linters: [gosec]
+        text: "G30[16]"
+
+      # errcheck on test setup calls — failures surface as test errors downstream.
+      - path: _test\.go
+        linters: [errcheck]
+
 formatters:
   enable:
     - gofmt
@@ -63,22 +79,5 @@ formatters:
         - github.com/jo-hoe/archivist
 
 issues:
-  # Don't fail on generated files or vendored code.
-  exclude-dirs:
-    - vendor
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  exclude-rules:
-    # os.WriteFile / os.MkdirAll in test helpers always write to t.TempDir();
-    # 0644/0755 permissions are appropriate there, not a security concern.
-    - path: _test\.go
-      linters: [gosec]
-      text: "G30[16]"
-
-    # errcheck on test setup calls — failures surface as test errors downstream.
-    - path: _test\.go
-      linters: [errcheck]
-
-# Per-path overrides for complexity linters.
-linters-settings: {}
