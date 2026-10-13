@@ -9,12 +9,20 @@ import (
 // laya is an encoder-based System 1 model serving the same /v1/systemone
 // protocol. It wraps state in {"body": ...}, nests answers under "answers",
 // supports English and multilingual checkpoints, and its HTTP server caps
-// Choice at 100 options. The English checkpoint defaults to a 512-token budget.
+// Choice at 100 options.
+//
+// Checkpoints and their default token budgets:
+//   - english          (ModernBERT-large, 421M)  — 512 tokens
+//   - multilingual     (mmBERT-base, 322M)        — 1 024 tokens, up to 8 192 with max_len
+//   - typed-decisions  (ModernBERT-large, 421M)   — 1 024 tokens
+//
+// The default here matches the multilingual checkpoint (archivist's default).
+// Override with --max-state-tokens to use the extended context.
 //
 // See github.com/NandhaKishorM/laya.
 
 const (
-	layaDefaultMaxStateTokens   = 512
+	layaDefaultMaxStateTokens   = 1024 // multilingual checkpoint default
 	layaDefaultMaxChoiceOptions = 100
 	layaLanguage                = "en"
 )
