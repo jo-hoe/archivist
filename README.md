@@ -1,5 +1,9 @@
 # archivist
 
+[![CI](https://github.com/jo-hoe/archivist/actions/workflows/ci.yml/badge.svg)](https://github.com/jo-hoe/archivist/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jo-hoe/archivist)](https://go.dev/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jo-hoe/archivist)](https://goreportcard.com/report/github.com/jo-hoe/archivist)
+
 Sort markdown files into a folder tree and tag them in YAML frontmatter — using
 **System 1 Decision Models** (von, laya) that return *typed answers with
 calibrated probabilities* instead of free text. No LLM cost, latency, or
@@ -28,52 +32,71 @@ apply?" and tells you how confident it is.
 The two bundled models, [von](https://github.com/wfzyx/von) (default) and
 [laya](https://github.com/NandhaKishorM/laya), speak the same `/v1/systemone`
 protocol (see [systemonemodels.org](https://systemonemodels.org/)), so switching
-between them is just configuration.
+between them is just one flag. Adding a new model is [three files and a registry
+entry](./CONTRIBUTING.md#adding-a-new-system-1-model) — nothing else changes.
 
 ## Quick start
 
 ### Option A — Docker Compose (batteries included)
 
-Runs the von model server next to archivist. Weights download once into a named
-volume and are reused on later runs.
+Weights download once into a named volume on first run and are reused on later runs.
+archivist waits for the model to become healthy before processing any files.
 
+**von (default):**
 ```bash
 mkdir -p in out            # drop .md files into ./in; results land in ./out
-docker compose up --build  # von fetches weights on first run, then processes ./in
+docker compose up --build
 ```
 
-On an NVIDIA GPU host (needs the NVIDIA Container Toolkit):
-
+**laya** (identical experience, different backend):
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+mkdir -p in out
+COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
 ```
+
+> **GPU:** both models auto-detect the best available accelerator. To force a
+> specific device, set `VON_DEVICE=cuda` in `compose/von.env` or
+> `LAYA_DEVICE=cuda` in `compose/laya.env` before running `docker compose up`.
+
+> **Tip:** put your defaults in a `.env` file so you don't retype them:
+> ```
+> COMPOSE_PROFILES=laya
+> ARCHIVIST_MODEL=laya
+> ```
 
 ### Option B — local binary
 
-You need a running model server. The simplest is von via Docker:
+Start any model server locally and point archivist at it. The flags are identical regardless of model.
 
 ```bash
+# Start von:
 docker run --rm -p 8000:8000 -v archivist-weights:/weights \
   -e HF_HOME=/weights ghcr.io/wfzyx/von:cpu
+
+# Or start laya (requires Python 3.10+):
+pip install "laya[serve]" && laya-serve
 ```
 
-Then build and run archivist against it:
+Build archivist and run against it:
 
 ```bash
 go build -o archivist ./cmd/archivist
 
-# Preview what would happen (prompts before moving anything):
-./archivist run --source ./in --target ./out --model-url http://localhost:8000
+# von:
+./archivist run --source ./in --target ./out \
+  --model von --model-url http://localhost:8000
 
-# Interactive terminal UI:
-./archivist tui --source ./in --target ./out
-```
+# laya (same flags, just change --model):
+./archivist run --source ./in --target ./out \
+  --model laya --model-url http://localhost:8000
 
-Add tagging and folder descriptions:
+# Interactive TUI (works with any model):
+./archivist tui --source ./in --target ./out --model laya
 
-```bash
+# With tagging and folder descriptions:
 ./archivist run \
   --source ./in --target ./out \
+  --model laya \
   --tags-file examples/tags.yaml \
   --descriptions-file examples/descriptions.yaml
 ```
@@ -98,7 +121,7 @@ CLI flags**.
 | `--source` | — | Directory to walk, or a text file listing input paths (required) |
 | `--target` | — | Root folder to sort into; its subfolders are the taxonomy (required) |
 | `--recursive` | `false` | Walk subdirectories of `--source` |
-| `--model` | `von` | Model backend: `von` or `laya` |
+| `--model` | `von` | Model backend — `von` or `laya` (or any registered model) |
 | `--model-url` | `http://localhost:8000` | Model server base URL |
 | `--model-device` | `auto` | Compute-device hint for the model (`auto`/`cuda`/`mps`/`cpu`) |
 | `--tags-file` | — | YAML of candidate tags; **enables tagging** when set |
@@ -131,6 +154,48 @@ exactly one tag.
 - **declared**: define the whole tree in one YAML
   ([`examples/taxonomy.yaml`](./examples/taxonomy.yaml)) via
   `--taxonomy-strategy declared --taxonomy-file …`.
+
+## Models
+
+archivist talks to any model that implements the `/v1/systemone` protocol. Two are
+bundled; they behave identically from archivist's perspective — same flags, same
+config keys, same Docker experience.
+
+| Model | Type | Default tokens | Notes |
+|-------|------|---------------|-------|
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 | Auto-selects OpenVINO CPU → CUDA → MPS. CUDA image not published; build locally from source for CUDA/ROCm. |
+| **laya** | built from `Dockerfile.laya` | 512 | One image, all devices. Set `LAYA_DEVICE=cuda/mps/xpu/cpu` in `compose/laya.env`. |
+
+### Switching models
+
+```bash
+# CLI — same flags regardless of model:
+./archivist run --source ./in --target ./out --model laya --model-url http://localhost:8000
+
+# Docker Compose — just change the profile:
+COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
+```
+
+### GPU acceleration
+
+Both models auto-detect the best available device. To override:
+
+- **von:** set `VON_DEVICE=cuda` (or `mps`, `openvino:gpu`) in `compose/von.env`  
+  Note: the published `:cpu` image uses OpenVINO and supports Intel GPU out of the box. For NVIDIA CUDA you must build the von image locally from source (not distributed due to large wheel size).
+- **laya:** set `LAYA_DEVICE=cuda` (or `mps`, `xpu`) in `compose/laya.env` — same image handles all devices; no rebuild needed.
+
+### Multilingual documents
+
+Both models handle documents in any language — cross-lingual matching works well
+(an English tag description like "invoices and receipts" will match a German
+`Rechnung`). For best results with non-English documents:
+
+- **von:** language is a server-side checkpoint choice (`VON_MODEL=multilingual` in `compose/von.env`)
+- **laya:** set `language: multilingual` in `config.yaml` (forwarded on each request)
+
+### Adding a new model
+
+Three files, no framework changes. See [CONTRIBUTING.md](./CONTRIBUTING.md#adding-a-new-system-1-model).
 
 ## Re-running
 

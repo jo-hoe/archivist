@@ -2,6 +2,7 @@ package tagging
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/jo-hoe/archivist/internal/model"
@@ -16,18 +17,25 @@ func sampleSet() TagSet {
 	}}
 }
 
+// tagFromInstructions extracts the tag name from the Instructions string built
+// by NoulStrategy — format: `Does the tag "<name>" (<description>) apply...?`
+func tagFromInstructions(instructions string) string {
+	start := strings.Index(instructions, `"`)
+	end := strings.LastIndex(instructions, `"`)
+	if start < 0 || end <= start {
+		return ""
+	}
+	return instructions[start+1 : end]
+}
+
 func TestNoulStrategyAppliesAboveThreshold(t *testing.T) {
 	// urgent raw=0.9 (apply), finance raw=0.5 (skip at 0.7), personal raw=0.8 (apply).
 	raws := map[string]float64{"urgent": 0.9, "finance": 0.5, "personal": 0.8}
 	fake := &modeltest.Fake{
 		NoulFn: func(_ model.State, q model.NoulQuestion) (model.NoulAnswer, error) {
-			// Instruction contains the tag name in quotes; match by criteria instead.
-			for name, raw := range raws {
-				if q.Criteria == sampleCriteria(name) {
-					return model.NoulAnswer{Noul: raw, NoulRaw: raw}, nil
-				}
-			}
-			return model.NoulAnswer{}, nil
+			name := tagFromInstructions(q.Instructions)
+			raw := raws[name]
+			return model.NoulAnswer{Noul: raw, NoulRaw: raw}, nil
 		},
 	}
 	s := NewNoulStrategy(sampleSet(), 0.7)
@@ -95,14 +103,4 @@ func TestChoiceStrategyEmptySet(t *testing.T) {
 	if got != nil {
 		t.Fatalf("empty set should yield no tags, got %v", got)
 	}
-}
-
-// sampleCriteria returns the description used for a tag in sampleSet.
-func sampleCriteria(name string) string {
-	for _, td := range sampleSet().Tags {
-		if td.Name == name {
-			return td.Description
-		}
-	}
-	return ""
 }

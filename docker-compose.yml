@@ -1,45 +1,108 @@
-# archivist + von (default System 1 model) with a persistent weights volume.
+# archivist — model server + archivist in one compose file.
 #
-# Quick start (CPU):
-#   mkdir -p in out            # drop markdown into ./in, results land in ./out
-#   docker compose up --build  # von downloads weights into the volume on first run
+# Default (von, CPU/OpenVINO):
+#   mkdir -p in out weights
+#   docker compose up --build
 #
-# GPU (NVIDIA): add the override file, which requests all GPUs and sets the
-# device to CUDA:
-#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+# Laya instead of von:
+#   COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
 #
-# The weights live in the named volume `model-weights`; a second `up` reuses
-# them and skips the ~multi-GB download.
+# GPU acceleration:
+#   Both models select the best available device automatically (auto mode).
+#   To force a specific device, set it in compose/von.env (VON_DEVICE=cuda)
+#   or compose/laya.env (LAYA_DEVICE=cuda) and re-run docker compose up.
+#   Note: von's CUDA image is not pre-published and must be built locally;
+#   laya uses the same image for all devices — LAYA_DEVICE is enough.
+#
+# Model weights land in ./weights/ (bind mount, gitignored) — visible on disk,
+# reused across runs, no Docker volume management needed.
 
 services:
+
+  # ── init ────────────────────────────────────────────────────────────────────
+  # One-shot: ensures ./weights is writable by model server processes (uid 1001).
+  # Required on Linux hosts where bind-mounted directories are owned by root.
+  # On macOS/Windows with Docker Desktop this is a no-op (user-space file sharing).
+  init-weights:
+    image: alpine:3
+    user: root
+    volumes:
+      - ./weights:/weights
+    command: ["sh", "-c", "chown -R 1001:1001 /weights && chmod 755 /weights"]
+    restart: "no"
+
+  # ── von (default) ───────────────────────────────────────────────────────────
+  # Published CPU/OpenVINO image. Selects the best available accelerator
+  # automatically (OpenVINO CPU > plain CPU). Override with VON_DEVICE in
+  # compose/von.env (cuda, mps, openvino:gpu, openvino:cpu, cpu).
   von:
     image: ghcr.io/wfzyx/von:cpu
-    env_file:
-      - compose/von.env
+    profiles: ["", "von"]
+    env_file: [compose/von.env]
     volumes:
-      # HF_HOME points here (see von.env); a populated volume short-circuits the
-      # download on restart.
-      - model-weights:/weights
+      - ./weights:/weights
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 30
       start_period: 300s
-    expose:
-      - "8000"
-    ports:
-      - "8000:8000"
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
+    expose: ["8000"]
+    networks:
+      default:
+        aliases: [model-server]
+    # Uncomment to reach von from the host (e.g. for local dev):
+    # ports:
+    #   - "8000:8000"
 
+  # ── laya ────────────────────────────────────────────────────────────────────
+  # Built from Dockerfile.laya. One image for all devices; set LAYA_DEVICE in
+  # compose/laya.env to override auto-detection (cuda, mps, xpu, cpu).
+  laya:
+    build:
+      context: .
+      dockerfile: Dockerfile.laya
+    profiles: ["laya"]
+    env_file: [compose/laya.env]
+    volumes:
+      - ./weights:/weights
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
+    expose: ["8000"]
+    networks:
+      default:
+        aliases: [model-server]
+    # Uncomment to reach laya from the host (e.g. for local dev):
+    # ports:
+    #   - "8000:8000"
+
+  # ── archivist ───────────────────────────────────────────────────────────────
+  # Always connects to http://model-server:8000 — the active model service
+  # registers that DNS alias on the internal network.
+  # Set ARCHIVIST_MODEL=laya when using COMPOSE_PROFILES=laya.
   archivist:
     build:
       context: .
     depends_on:
       von:
         condition: service_healthy
+        required: false
+      laya:
+        condition: service_healthy
+        required: false
     environment:
       ARCHIVIST_MODEL: von
-      ARCHIVIST_MODEL_URL: http://von:8000
+      ARCHIVIST_MODEL_URL: http://model-server:8000
       ARCHIVIST_NO_PREVIEW: "true"
     volumes:
       - ./in:/data/in
@@ -47,8 +110,4 @@ services:
       - ./examples:/data/examples:ro
       # Optional: mount your config and taxonomy/tags files.
       # - ./config.yaml:/data/config.yaml:ro
-    # `run` reads env + any mounted /data/config.yaml.
     command: ["run"]
-
-volumes:
-  model-weights: {}
