@@ -1,5 +1,9 @@
 # archivist
 
+[![CI](https://github.com/jo-hoe/archivist/actions/workflows/ci.yml/badge.svg)](https://github.com/jo-hoe/archivist/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jo-hoe/archivist)](https://go.dev/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jo-hoe/archivist)](https://goreportcard.com/report/github.com/jo-hoe/archivist)
+
 Sort markdown files into a folder tree and tag them in YAML frontmatter — using
 **System 1 Decision Models** (von, laya) that return *typed answers with
 calibrated probabilities* instead of free text. No LLM cost, latency, or
