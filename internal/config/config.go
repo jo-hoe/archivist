@@ -55,6 +55,9 @@ type Config struct {
 	OnOverflow string
 	// OnOptions is "error" (default) or "adapt".
 	OnOptions string
+	// ModelSeesFrontmatter includes the YAML frontmatter header in the document
+	// body sent to the model. Default false: only the content body is sent.
+	ModelSeesFrontmatter bool
 }
 
 // ModelConfig configures the System 1 model client.
@@ -81,6 +84,9 @@ type TaggingConfig struct {
 type DescentConfig struct {
 	Strategy  string
 	Threshold float64
+	// Instructions is the natural-language prompt used when asking the model
+	// which subfolder to descend into. Empty uses the built-in default.
+	Instructions string
 }
 
 // TaxonomyConfig configures how the target structure is provided.

@@ -90,6 +90,7 @@ func bindFlags(root *cobra.Command, v *viper.Viper) {
 	pf.Float64("tagging-threshold", def.Tagging.Threshold, "confidence threshold for applying tags")
 	pf.String("descent-strategy", def.Descent.Strategy, "descent stop strategy: threshold or stayhere")
 	pf.Float64("descent-threshold", def.Descent.Threshold, "confidence threshold for descending into a subfolder")
+	pf.String("descent-instructions", def.Descent.Instructions, "custom instructions for the folder-selection question (empty = built-in default)")
 
 	pf.String("taxonomy-strategy", def.Taxonomy.Strategy, "taxonomy source: scan or declared")
 	pf.String("descriptions-file", "", "YAML of path-keyed folder descriptions (scan strategy)")
@@ -98,6 +99,8 @@ func bindFlags(root *cobra.Command, v *viper.Viper) {
 	pf.Bool("override-meta", def.OverrideMeta, "replace pre-existing frontmatter values")
 	pf.Bool("no-preview", def.NoPreview, "skip the preview list and process immediately")
 	pf.Bool("dry-run", def.DryRun, "compute decisions without moving any files")
+	pf.Bool("model-sees-frontmatter", def.ModelSeesFrontmatter,
+		"include YAML frontmatter in the document body sent to the model (default false — body only)")
 	pf.String("on-overflow", def.OnOverflow, "when input exceeds the token limit: error or crop")
 	pf.String("on-options", def.OnOptions, "when a choice exceeds the option limit: error or adapt")
 
@@ -130,6 +133,7 @@ func configFromViper(v *viper.Viper) config.Config {
 	c.Tagging.Threshold = v.GetFloat64("tagging-threshold")
 	c.Descent.Strategy = v.GetString("descent-strategy")
 	c.Descent.Threshold = v.GetFloat64("descent-threshold")
+	c.Descent.Instructions = v.GetString("descent-instructions")
 
 	c.Taxonomy.Strategy = v.GetString("taxonomy-strategy")
 	c.Taxonomy.DescriptionsFile = v.GetString("descriptions-file")
@@ -138,6 +142,7 @@ func configFromViper(v *viper.Viper) config.Config {
 	c.OverrideMeta = v.GetBool("override-meta")
 	c.NoPreview = v.GetBool("no-preview")
 	c.DryRun = v.GetBool("dry-run")
+	c.ModelSeesFrontmatter = v.GetBool("model-sees-frontmatter")
 	c.OnOverflow = v.GetString("on-overflow")
 	c.OnOptions = v.GetString("on-options")
 	return c

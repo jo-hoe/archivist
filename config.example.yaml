@@ -184,6 +184,12 @@ descent-strategy: threshold
 # default: 0.6
 descent-threshold: 0.6
 
+# descent-instructions — custom natural-language prompt for the folder-selection
+# question asked at each level of the taxonomy. Leave empty to use the
+# built-in default: "Select the folder that best fits this document."
+# Example: "Choose the most appropriate category for this document."
+descent-instructions: ""
+
 # ---------------------------------------------------------------------------
 # Run behavior
 # ---------------------------------------------------------------------------
@@ -197,3 +203,11 @@ no-preview: false
 # nothing. Great for seeing what a config would do before committing.
 # default: false
 dry-run: false
+
+# model-sees-frontmatter — include the YAML frontmatter header in the document
+# body sent to the model for classification. Default false: only the content
+# body is sent, so the model decides based on the document text alone.
+# Set true when existing metadata (tags, date, author) should inform the
+# model's sorting and tagging decisions.
+# default: false
+model-sees-frontmatter: false

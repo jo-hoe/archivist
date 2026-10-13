@@ -176,3 +176,61 @@ func writeFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestPipelineModelDoesNotSeeFrontmatterByDefault(t *testing.T) {
+	// By default (ModelSeesFrontmatter: false) the model receives only the body,
+	// not the YAML frontmatter.
+	target := setupTarget(t)
+	src := filepath.Join(t.TempDir(), "tagged.md")
+	writeFile(t, src, "---\ntags:\n  - finance\n---\n# Invoice\nThis is an invoice.")
+
+	var receivedBody string
+	fake := &modeltest.Fake{
+		ChoiceFn: func(state model.State, q model.ChoiceQuestion) (model.ChoiceAnswer, error) {
+			receivedBody = state.Body
+			return modeltest.ChoosePick("invoice", 0.9)(state, q)
+		},
+	}
+	p := newPipeline(t, target, fake, nil, false)
+	// default: ModelSeesFrontmatter is false
+
+	_, err := p.Run(context.Background(), []fileops.Entry{{AbsPath: src, Rel: "tagged.md"}}, ProgressHook{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if strings.Contains(receivedBody, "---") {
+		t.Fatalf("model should not see frontmatter by default, got body:\n%s", receivedBody)
+	}
+	if !strings.Contains(receivedBody, "Invoice") {
+		t.Fatalf("model should see the body content, got:\n%s", receivedBody)
+	}
+}
+
+func TestPipelineModelSeesFrontmatterWhenEnabled(t *testing.T) {
+	// With ModelSeesFrontmatter: true the model receives the full raw content
+	// including the YAML frontmatter block.
+	target := setupTarget(t)
+	src := filepath.Join(t.TempDir(), "tagged.md")
+	writeFile(t, src, "---\ntags:\n  - finance\n---\n# Invoice\nThis is an invoice.")
+
+	var receivedBody string
+	fake := &modeltest.Fake{
+		ChoiceFn: func(state model.State, q model.ChoiceQuestion) (model.ChoiceAnswer, error) {
+			receivedBody = state.Body
+			return modeltest.ChoosePick("invoice", 0.9)(state, q)
+		},
+	}
+	p := newPipeline(t, target, fake, nil, false)
+	p.Cfg.ModelSeesFrontmatter = true
+
+	_, err := p.Run(context.Background(), []fileops.Entry{{AbsPath: src, Rel: "tagged.md"}}, ProgressHook{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if !strings.Contains(receivedBody, "---") {
+		t.Fatalf("model should see frontmatter when enabled, got body:\n%s", receivedBody)
+	}
+	if !strings.Contains(receivedBody, "finance") {
+		t.Fatalf("model should see YAML tags in frontmatter, got:\n%s", receivedBody)
+	}
+}

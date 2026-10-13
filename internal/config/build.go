@@ -74,14 +74,15 @@ func Build(ctx context.Context, c Config) (*Built, error) {
 
 	p := &pipeline.Pipeline{
 		Model:  m,
-		Walker: descent.NewWalker(prov, c.stopStrategy(), ""),
+		Walker: descent.NewWalker(prov, c.stopStrategy(), c.Descent.Instructions),
 		Tagger: tagger,
 		Mover:  fileops.NewMover(),
 		Cfg: pipeline.Config{
-			Override: c.OverrideMeta,
-			Overflow: c.overflowPolicy(),
-			Options:  c.optionPolicy(),
-			DryRun:   c.DryRun,
+			Override:             c.OverrideMeta,
+			Overflow:             c.overflowPolicy(),
+			Options:              c.optionPolicy(),
+			DryRun:               c.DryRun,
+			ModelSeesFrontmatter: c.ModelSeesFrontmatter,
 		},
 		TargetRoot: target,
 	}

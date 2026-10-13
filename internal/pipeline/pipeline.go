@@ -37,6 +37,10 @@ type Config struct {
 	Options  model.OptionPolicy
 	// DryRun computes destinations and tags but performs no moves or writes.
 	DryRun bool
+	// ModelSeesFrontmatter sends the full raw file content (frontmatter + body)
+	// to the model. By default (false) only the content body is sent, so
+	// existing metadata does not influence classification.
+	ModelSeesFrontmatter bool
 }
 
 // Pipeline ties the components together.
@@ -106,6 +110,9 @@ func (p *Pipeline) processOne(ctx context.Context, e fileops.Entry) Result {
 	}
 
 	state := model.State{Body: doc.Body}
+	if p.Cfg.ModelSeesFrontmatter {
+		state = model.State{Body: string(raw)}
+	}
 	state, err = model.EnforceState(state, p.Model.Capabilities().MaxStateTokens, p.Cfg.Overflow, p.tokenizer())
 	if err != nil {
 		res.Err = err
