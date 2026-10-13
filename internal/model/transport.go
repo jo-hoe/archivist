@@ -110,7 +110,7 @@ func (t *Transport) post(ctx context.Context, body wireRequest) (wireResponse, e
 	if err != nil {
 		return wireResponse{}, fmt.Errorf("%w: %v", ErrModelUnavailable, err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {

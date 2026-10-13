@@ -97,7 +97,7 @@ children:
 
 func mustMkdir(t *testing.T, path string) {
 	t.Helper()
-	if err := os.MkdirAll(path, 0o755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil { //nolint:gosec // G301: test temp dir
 		t.Fatalf("mkdir %s: %v", path, err)
 	}
 }
