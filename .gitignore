@@ -1,5 +1,6 @@
 # Build artifacts
 /.gotmp/
+/.gocache/
 /archivist
 /archivist.exe
 /dist/
