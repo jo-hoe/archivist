@@ -163,8 +163,10 @@ config keys, same Docker experience.
 
 | Model | Type | Max input tokens | Notes |
 |-------|------|-----------------|-------|
-| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 (~32K chars) | Token budget covers document body + question instructions + folder/tag options combined. CUDA image not published; build locally for CUDA/ROCm. |
-| **laya** | built from `Dockerfile.laya` | 512 (~2K chars) | Same combined budget (body + question + options). Tight for long docs — use `--on-overflow crop`. One image, all devices via `LAYA_DEVICE` in `compose/laya.env`. |
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 (~32K chars) | CUDA image not published; build locally for CUDA/ROCm. |
+| **laya** | built from `Dockerfile.laya` | 512 (~2K chars) | Tight for long docs — use `--on-overflow crop`. Set `LAYA_DEVICE` in `compose/laya.env`. |
+
+> **Token budget** — each request counts the document body + question instructions + folder/tag option descriptions together. System 1 models return typed answers (a probability or a choice key), not generated text, so there is no output token cost.
 
 ### Switching models
 
