@@ -26,10 +26,13 @@ func (*NoulStrategy) Name() string { return "noul" }
 func (s *NoulStrategy) Tags(ctx context.Context, m model.System1, state model.State) ([]string, error) {
 	var applied []string
 	for _, tag := range s.Set.Tags {
-		q := model.NoulQuestion{
-			Instructions: fmt.Sprintf("Does the tag %q apply to this document?", tag.Name),
-			Criteria:     tag.describeOr(),
+		// Include the tag description in Instructions so it reaches both von
+		// and laya without needing model-specific criteria key conventions.
+		instructions := fmt.Sprintf("Does the tag %q apply to this document?", tag.Name)
+		if desc := tag.describeOr(); desc != tag.Name {
+			instructions = fmt.Sprintf("Does the tag %q (%s) apply to this document?", tag.Name, desc)
 		}
+		q := model.NoulQuestion{Instructions: instructions}
 		ans, err := m.Noul(ctx, state, q)
 		if err != nil {
 			return nil, fmt.Errorf("noul for tag %q: %w", tag.Name, err)

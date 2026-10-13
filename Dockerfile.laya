@@ -15,7 +15,7 @@ ENV LAYA_HOST=0.0.0.0 \
     LAYA_DEVICE=cpu \
     LAYA_PRELOAD=1 \
     LAYA_DEFAULT_MODEL=multilingual \
-    HF_HOME=/weights/hub
+    HF_HOME=/weights
 
 EXPOSE 8000
 CMD ["laya-serve"]
