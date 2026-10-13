@@ -1,0 +1,14 @@
+# Normalize all text files to LF in the repository.
+# This prevents gofmt failures on Linux/macOS CI when files were edited on Windows.
+* text=auto eol=lf
+
+# Explicitly mark Go files as text.
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.env text eol=lf
+*.gitignore text eol=lf
+Dockerfile* text eol=lf
