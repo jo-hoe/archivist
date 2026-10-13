@@ -34,46 +34,70 @@ between them is just configuration.
 
 ### Option A — Docker Compose (batteries included)
 
-Runs the von model server next to archivist. Weights download once into a named
-volume and are reused on later runs.
+Weights download once into a named volume on first run and are reused on later runs.
+archivist waits for the model to become healthy before processing any files.
 
+**von (default):**
 ```bash
 mkdir -p in out            # drop .md files into ./in; results land in ./out
-docker compose up --build  # von fetches weights on first run, then processes ./in
+docker compose up --build
 ```
 
-On an NVIDIA GPU host (needs the NVIDIA Container Toolkit):
-
+**laya** (identical experience, different backend):
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+mkdir -p in out
+COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
 ```
+
+**NVIDIA GPU** — append the `gpu` profile (works with both models):
+```bash
+# von + GPU:
+COMPOSE_PROFILES=gpu docker compose up --build
+
+# laya + GPU:
+COMPOSE_PROFILES=laya,gpu ARCHIVIST_MODEL=laya docker compose up --build
+```
+
+> **Tip:** put your defaults in a `.env` file in the project root so you
+> don't have to type them each time:
+> ```
+> COMPOSE_PROFILES=laya
+> ARCHIVIST_MODEL=laya
+> ```
 
 ### Option B — local binary
 
-You need a running model server. The simplest is von via Docker:
+Start any model server locally and point archivist at it. The flags are identical regardless of model.
 
 ```bash
+# Start von:
 docker run --rm -p 8000:8000 -v archivist-weights:/weights \
   -e HF_HOME=/weights ghcr.io/wfzyx/von:cpu
+
+# Or start laya (requires Python 3.10+):
+pip install "laya[serve]" && laya-serve
 ```
 
-Then build and run archivist against it:
+Build archivist and run against it:
 
 ```bash
 go build -o archivist ./cmd/archivist
 
-# Preview what would happen (prompts before moving anything):
-./archivist run --source ./in --target ./out --model-url http://localhost:8000
+# von:
+./archivist run --source ./in --target ./out \
+  --model von --model-url http://localhost:8000
 
-# Interactive terminal UI:
-./archivist tui --source ./in --target ./out
-```
+# laya (same flags, just change --model):
+./archivist run --source ./in --target ./out \
+  --model laya --model-url http://localhost:8000
 
-Add tagging and folder descriptions:
+# Interactive TUI (works with any model):
+./archivist tui --source ./in --target ./out --model laya
 
-```bash
+# With tagging and folder descriptions:
 ./archivist run \
   --source ./in --target ./out \
+  --model laya \
   --tags-file examples/tags.yaml \
   --descriptions-file examples/descriptions.yaml
 ```

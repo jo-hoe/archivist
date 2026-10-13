@@ -1,20 +1,25 @@
-# archivist + von (default System 1 model) with a persistent weights volume.
+# archivist — model server + archivist in one compose file.
 #
-# Quick start (CPU):
-#   mkdir -p in out            # drop markdown into ./in, results land in ./out
-#   docker compose up --build  # von downloads weights into the volume on first run
+# All model variants expose themselves as "model-server" on the internal
+# network, so archivist always connects to http://model-server:8000
+# regardless of which model is selected.
 #
-# GPU (NVIDIA): add the override file, which requests all GPUs and sets the
-# device to CUDA:
-#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+# ┌─────────────────────────────────────────────────────────┐
+# │  Model       Profile(s)   Command                       │
+# ├─────────────────────────────────────────────────────────┤
+# │  von  CPU    (default)    docker compose up --build     │
+# │  von  GPU    gpu          COMPOSE_PROFILES=gpu …        │
+# │  laya CPU    laya         COMPOSE_PROFILES=laya …       │
+# │  laya GPU    laya,gpu     COMPOSE_PROFILES=laya,gpu …   │
+# └─────────────────────────────────────────────────────────┘
 #
-# The weights live in the named volume `model-weights`; a second `up` reuses
-# them and skips the ~multi-GB download.
+# Weights live in the named volume `model-weights` and are reused across
+# runs; the download only happens once on a clean volume.
 
 services:
-  # One-shot init: ensures the weights volume is writable by von (uid 1001)
-  # before it tries to download the model from Hugging Face. Exits immediately
-  # after chown; Docker marks it as completed (exit 0) so von can start.
+
+  # ── init ────────────────────────────────────────────────────────────────────
+  # One-shot: ensures the weights volume is writable before any model starts.
   init-weights:
     image: alpine:3
     user: root
@@ -23,16 +28,12 @@ services:
     command: ["sh", "-c", "chown -R 1001:1001 /weights && chmod 755 /weights"]
     restart: "no"
 
+  # ── von CPU (default) ───────────────────────────────────────────────────────
   von:
     image: ghcr.io/wfzyx/von:cpu
-    depends_on:
-      init-weights:
-        condition: service_completed_successfully
-    env_file:
-      - compose/von.env
+    profiles: ["", "von"]
+    env_file: [compose/von.env]
     volumes:
-      # HF_HOME points here (see von.env); a populated volume short-circuits the
-      # download on restart.
       - model-weights:/weights
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -40,21 +41,125 @@ services:
       timeout: 5s
       retries: 30
       start_period: 300s
-    expose:
-      - "8000"
-    # Uncomment to reach the model server from the host (e.g. for local dev):
-    # ports:
-    #   - "8000:8000"
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
+    expose: ["8000"]
+    networks:
+      default:
+        aliases: [model-server]
 
+  # ── von GPU ─────────────────────────────────────────────────────────────────
+  von-gpu:
+    image: ghcr.io/wfzyx/von:cuda
+    profiles: ["gpu"]
+    env_file: [compose/von.env]
+    environment:
+      VON_DEVICE: cuda
+    volumes:
+      - model-weights:/weights
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 300s
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
+    expose: ["8000"]
+    networks:
+      default:
+        aliases: [model-server]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  # ── laya CPU ────────────────────────────────────────────────────────────────
+  laya:
+    build:
+      context: .
+      dockerfile: Dockerfile.laya
+    profiles: ["laya"]
+    env_file: [compose/laya.env]
+    volumes:
+      - model-weights:/weights
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
+    expose: ["8000"]
+    networks:
+      default:
+        aliases: [model-server]
+
+  # ── laya GPU ────────────────────────────────────────────────────────────────
+  laya-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.laya
+      args:
+        TORCH_INDEX: cu130
+        TORCH_VERSION: "2.14.0"
+    profiles: ["laya,gpu"]
+    env_file: [compose/laya.env]
+    environment:
+      LAYA_DEVICE: cuda
+    volumes:
+      - model-weights:/weights
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
+    depends_on:
+      init-weights:
+        condition: service_completed_successfully
+    expose: ["8000"]
+    networks:
+      default:
+        aliases: [model-server]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  # ── archivist ───────────────────────────────────────────────────────────────
+  # Always connects to http://model-server:8000 — the active model service
+  # registers that DNS alias on the internal network.
+  # Set ARCHIVIST_MODEL=laya when using COMPOSE_PROFILES=laya[,gpu].
   archivist:
     build:
       context: .
     depends_on:
       von:
         condition: service_healthy
+        required: false
+      von-gpu:
+        condition: service_healthy
+        required: false
+      laya:
+        condition: service_healthy
+        required: false
+      laya-gpu:
+        condition: service_healthy
+        required: false
     environment:
       ARCHIVIST_MODEL: von
-      ARCHIVIST_MODEL_URL: http://von:8000
+      ARCHIVIST_MODEL_URL: http://model-server:8000
       ARCHIVIST_NO_PREVIEW: "true"
     volumes:
       - ./in:/data/in
@@ -62,7 +167,6 @@ services:
       - ./examples:/data/examples:ro
       # Optional: mount your config and taxonomy/tags files.
       # - ./config.yaml:/data/config.yaml:ro
-    # `run` reads env + any mounted /data/config.yaml.
     command: ["run"]
 
 volumes:
