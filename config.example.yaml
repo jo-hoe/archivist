@@ -57,8 +57,20 @@ model-id: ""
 # Prefer the env var ARCHIVIST_API_KEY over committing secrets to this file.
 api-key: ""
 
-# language — model language override: "en" or "multilingual".
+# language — model language hint: "en" or "multilingual".
 # default: "" (use the model's own default — "en")
+#
+# Your documents can be in any language — multilingual models handle
+# cross-lingual matching well (e.g. English tag descriptions will still match
+# a French or German document). For best results with non-English documents:
+#
+#   von:  language is selected by the model checkpoint server-side; archivist
+#         does not forward this to von on the wire. Use the multilingual von
+#         checkpoint on the server (VON_MODEL=multilingual in compose/von.env).
+#
+#   laya: set language: multilingual here — archivist forwards it in every
+#         request so laya loads its multilingual checkpoint instead of the
+#         English-only default.
 language: ""
 
 # model-device — compute-device HINT for the model server:
