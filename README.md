@@ -28,7 +28,8 @@ apply?" and tells you how confident it is.
 The two bundled models, [von](https://github.com/wfzyx/von) (default) and
 [laya](https://github.com/NandhaKishorM/laya), speak the same `/v1/systemone`
 protocol (see [systemonemodels.org](https://systemonemodels.org/)), so switching
-between them is just configuration.
+between them is just one flag. Adding a new model is [three files and a registry
+entry](./CONTRIBUTING.md#adding-a-new-system-1-model) — nothing else changes.
 
 ## Quick start
 
@@ -122,7 +123,7 @@ CLI flags**.
 | `--source` | — | Directory to walk, or a text file listing input paths (required) |
 | `--target` | — | Root folder to sort into; its subfolders are the taxonomy (required) |
 | `--recursive` | `false` | Walk subdirectories of `--source` |
-| `--model` | `von` | Model backend: `von` or `laya` |
+| `--model` | `von` | Model backend — `von` or `laya` (or any registered model) |
 | `--model-url` | `http://localhost:8000` | Model server base URL |
 | `--model-device` | `auto` | Compute-device hint for the model (`auto`/`cuda`/`mps`/`cpu`) |
 | `--tags-file` | — | YAML of candidate tags; **enables tagging** when set |
@@ -155,6 +156,40 @@ exactly one tag.
 - **declared**: define the whole tree in one YAML
   ([`examples/taxonomy.yaml`](./examples/taxonomy.yaml)) via
   `--taxonomy-strategy declared --taxonomy-file …`.
+
+## Models
+
+archivist talks to any model that implements the `/v1/systemone` protocol. Two are
+bundled; they behave identically from archivist's perspective — same flags, same
+config keys, same Docker experience.
+
+| Model | Type | Default tokens | Notes |
+|-------|------|---------------|-------|
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 | GPU: `:cuda` image; device selected server-side |
+| **laya** | built from `Dockerfile.laya` | 512 | GPU: set `LAYA_DEVICE=cuda`; select checkpoint via `--language` |
+
+### Switching models
+
+```bash
+# CLI — same flags regardless of model:
+./archivist run --source ./in --target ./out --model laya --model-url http://localhost:8000
+
+# Docker Compose — just change the profile:
+COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
+```
+
+### Multilingual documents
+
+Both models handle documents in any language — cross-lingual matching works well
+(an English tag description like "invoices and receipts" will match a German
+`Rechnung`). For best results with non-English documents:
+
+- **von:** language is a server-side checkpoint choice (`VON_MODEL=multilingual` in `compose/von.env`)
+- **laya:** set `language: multilingual` in `config.yaml` (forwarded on each request)
+
+### Adding a new model
+
+Three files, no framework changes. See [CONTRIBUTING.md](./CONTRIBUTING.md#adding-a-new-system-1-model).
 
 ## Re-running
 
