@@ -131,9 +131,11 @@ CLI flags**.
 | `--descriptions-file` | — | Per-folder descriptions for the `scan` strategy |
 | `--descent-strategy` | `threshold` | `threshold` or `stayhere` stop logic |
 | `--descent-threshold` | `0.6` | Confidence needed to descend into a subfolder |
+| `--descent-instructions` | — | Custom prompt for folder-selection questions |
 | `--override-meta` | `false` | Replace existing frontmatter values instead of keeping them |
 | `--on-overflow` | `error` | `error` or `crop` when a document exceeds the token budget |
 | `--on-options` | `error` | `error` or `adapt` when a choice exceeds the option cap |
+| `--model-sees-frontmatter` | `false` | Send full file (incl. YAML header) to the model |
 | `--dry-run` | `false` | Compute the plan but move/write nothing |
 | `--no-preview` | `false` | Skip the preview + confirmation (set in Docker) |
 
@@ -163,8 +165,8 @@ config keys, same Docker experience.
 
 | Model | Type | Max input tokens | Notes |
 |-------|------|-----------------|-------|
-| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8,192 (~32K chars) | CUDA image not published; build locally for CUDA/ROCm. |
-| **laya** | built from `Dockerfile.laya` | 1,024 (~4K chars) with multilingual checkpoint (default); 512 with English; up to 8,192 via `--max-state-tokens 8192` | Tight for long docs — use `--on-overflow crop`. Set `LAYA_DEVICE` in `compose/laya.env`. |
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 (~32K chars) | CUDA image not published; build locally for CUDA/ROCm. |
+| **laya** | built from `Dockerfile.laya` | 1 024 (~4K chars) with multilingual checkpoint (default); 512 with English; up to 8 192 via `--max-state-tokens 8192` | Tight for long docs — use `--on-overflow crop`. Set `LAYA_DEVICE` in `compose/laya.env`. |
 
 > **Token budget** — each request counts the document body + question instructions + folder/tag option descriptions together. System 1 models return typed answers (a probability or a choice key), not generated text, so there is no output token cost.
 
