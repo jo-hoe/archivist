@@ -118,19 +118,7 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.Target) == "" {
 		return fmt.Errorf("target is required")
 	}
-	if err := checkEnum("tagging strategy", c.Tagging.Strategy, TaggingNoul, TaggingChoice); err != nil {
-		return err
-	}
-	if err := checkEnum("descent strategy", c.Descent.Strategy, DescentThreshold, DescentStayHere); err != nil {
-		return err
-	}
-	if err := checkEnum("taxonomy strategy", c.Taxonomy.Strategy, TaxonomyScan, TaxonomyDeclared); err != nil {
-		return err
-	}
-	if err := checkEnum("on-overflow", c.OnOverflow, OverflowError, OverflowCrop); err != nil {
-		return err
-	}
-	if err := checkEnum("on-options", c.OnOptions, OptionsError, OptionsAdapt); err != nil {
+	if err := c.validateEnums(); err != nil {
 		return err
 	}
 	if c.Taxonomy.Strategy == TaxonomyDeclared && c.Taxonomy.DeclaredFile == "" {
@@ -140,6 +128,26 @@ func (c Config) Validate() error {
 		return err
 	}
 	return checkThreshold("descent threshold", c.Descent.Threshold)
+}
+
+func (c Config) validateEnums() error {
+	checks := []struct {
+		name    string
+		got     string
+		allowed [2]string
+	}{
+		{"tagging strategy", c.Tagging.Strategy, [2]string{TaggingNoul, TaggingChoice}},
+		{"descent strategy", c.Descent.Strategy, [2]string{DescentThreshold, DescentStayHere}},
+		{"taxonomy strategy", c.Taxonomy.Strategy, [2]string{TaxonomyScan, TaxonomyDeclared}},
+		{"on-overflow", c.OnOverflow, [2]string{OverflowError, OverflowCrop}},
+		{"on-options", c.OnOptions, [2]string{OptionsError, OptionsAdapt}},
+	}
+	for _, ch := range checks {
+		if err := checkEnum(ch.name, ch.got, ch.allowed[0], ch.allowed[1]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func checkEnum(name, got string, allowed ...string) error {
