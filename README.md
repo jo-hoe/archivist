@@ -1,6 +1,7 @@
 # archivist
 
-[![CI](https://github.com/jo-hoe/archivist/actions/workflows/ci.yml/badge.svg)](https://github.com/jo-hoe/archivist/actions/workflows/ci.yml)
+[![Test](https://github.com/jo-hoe/archivist/actions/workflows/test.yml/badge.svg)](https://github.com/jo-hoe/archivist/actions/workflows/test.yml)
+[![Lint](https://github.com/jo-hoe/archivist/actions/workflows/lint.yml/badge.svg)](https://github.com/jo-hoe/archivist/actions/workflows/lint.yml)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/jo-hoe/archivist)](https://go.dev/)
 
 Sort markdown files into a folder tree and tag them in YAML frontmatter — using
