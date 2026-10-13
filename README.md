@@ -50,17 +50,11 @@ mkdir -p in out
 COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
 ```
 
-**NVIDIA GPU** — append the `gpu` profile (works with both models):
-```bash
-# von + GPU:
-COMPOSE_PROFILES=gpu docker compose up --build
+> **GPU:** both models auto-detect the best available accelerator. To force a
+> specific device, set `VON_DEVICE=cuda` in `compose/von.env` or
+> `LAYA_DEVICE=cuda` in `compose/laya.env` before running `docker compose up`.
 
-# laya + GPU:
-COMPOSE_PROFILES=laya,gpu ARCHIVIST_MODEL=laya docker compose up --build
-```
-
-> **Tip:** put your defaults in a `.env` file in the project root so you
-> don't have to type them each time:
+> **Tip:** put your defaults in a `.env` file so you don't retype them:
 > ```
 > COMPOSE_PROFILES=laya
 > ARCHIVIST_MODEL=laya
@@ -165,8 +159,8 @@ config keys, same Docker experience.
 
 | Model | Type | Default tokens | Notes |
 |-------|------|---------------|-------|
-| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 | GPU: `:cuda` image; device selected server-side |
-| **laya** | built from `Dockerfile.laya` | 512 | GPU: set `LAYA_DEVICE=cuda`; select checkpoint via `--language` |
+| **von** (default) | pre-built image `ghcr.io/wfzyx/von:cpu` | 8 192 | Auto-selects OpenVINO CPU → CUDA → MPS. CUDA image not published; build locally from source for CUDA/ROCm. |
+| **laya** | built from `Dockerfile.laya` | 512 | One image, all devices. Set `LAYA_DEVICE=cuda/mps/xpu/cpu` in `compose/laya.env`. |
 
 ### Switching models
 
@@ -177,6 +171,14 @@ config keys, same Docker experience.
 # Docker Compose — just change the profile:
 COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
 ```
+
+### GPU acceleration
+
+Both models auto-detect the best available device. To override:
+
+- **von:** set `VON_DEVICE=cuda` (or `mps`, `openvino:gpu`) in `compose/von.env`  
+  Note: the published `:cpu` image uses OpenVINO and supports Intel GPU out of the box. For NVIDIA CUDA you must build the von image locally from source (not distributed due to large wheel size).
+- **laya:** set `LAYA_DEVICE=cuda` (or `mps`, `xpu`) in `compose/laya.env` — same image handles all devices; no rebuild needed.
 
 ### Multilingual documents
 

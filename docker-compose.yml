@@ -1,20 +1,20 @@
 # archivist — model server + archivist in one compose file.
 #
-# All model variants expose themselves as "model-server" on the internal
-# network, so archivist always connects to http://model-server:8000
-# regardless of which model is selected.
+# Default (von, CPU/OpenVINO):
+#   mkdir -p in out
+#   docker compose up --build
 #
-# ┌─────────────────────────────────────────────────────────┐
-# │  Model       Profile(s)   Command                       │
-# ├─────────────────────────────────────────────────────────┤
-# │  von  CPU    (default)    docker compose up --build     │
-# │  von  GPU    gpu          COMPOSE_PROFILES=gpu …        │
-# │  laya CPU    laya         COMPOSE_PROFILES=laya …       │
-# │  laya GPU    laya,gpu     COMPOSE_PROFILES=laya,gpu …   │
-# └─────────────────────────────────────────────────────────┘
+# Laya instead of von:
+#   COMPOSE_PROFILES=laya ARCHIVIST_MODEL=laya docker compose up --build
 #
-# Weights live in the named volume `model-weights` and are reused across
-# runs; the download only happens once on a clean volume.
+# GPU acceleration:
+#   Both models select the best available device automatically (auto mode).
+#   To force a specific device, set it in compose/von.env (VON_DEVICE=cuda)
+#   or compose/laya.env (LAYA_DEVICE=cuda) and re-run docker compose up.
+#   Note: von's CUDA image is not pre-published and must be built locally;
+#   laya uses the same image for all devices — LAYA_DEVICE is enough.
+#
+# Weights are stored in a named volume and reused across runs.
 
 services:
 
@@ -28,7 +28,10 @@ services:
     command: ["sh", "-c", "chown -R 1001:1001 /weights && chmod 755 /weights"]
     restart: "no"
 
-  # ── von CPU (default) ───────────────────────────────────────────────────────
+  # ── von (default) ───────────────────────────────────────────────────────────
+  # Published CPU/OpenVINO image. Selects the best available accelerator
+  # automatically (OpenVINO CPU > plain CPU). Override with VON_DEVICE in
+  # compose/von.env (cuda, mps, openvino:gpu, openvino:cpu, cpu).
   von:
     image: ghcr.io/wfzyx/von:cpu
     profiles: ["", "von"]
@@ -48,38 +51,13 @@ services:
     networks:
       default:
         aliases: [model-server]
+    # Uncomment to reach von from the host (e.g. for local dev):
+    # ports:
+    #   - "8000:8000"
 
-  # ── von GPU ─────────────────────────────────────────────────────────────────
-  von-gpu:
-    image: ghcr.io/wfzyx/von:cuda
-    profiles: ["gpu"]
-    env_file: [compose/von.env]
-    environment:
-      VON_DEVICE: cuda
-    volumes:
-      - model-weights:/weights
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 300s
-    depends_on:
-      init-weights:
-        condition: service_completed_successfully
-    expose: ["8000"]
-    networks:
-      default:
-        aliases: [model-server]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: ["gpu"]
-
-  # ── laya CPU ────────────────────────────────────────────────────────────────
+  # ── laya ────────────────────────────────────────────────────────────────────
+  # Built from Dockerfile.laya. One image for all devices; set LAYA_DEVICE in
+  # compose/laya.env to override auto-detection (cuda, mps, xpu, cpu).
   laya:
     build:
       context: .
@@ -101,46 +79,14 @@ services:
     networks:
       default:
         aliases: [model-server]
-
-  # ── laya GPU ────────────────────────────────────────────────────────────────
-  laya-gpu:
-    build:
-      context: .
-      dockerfile: Dockerfile.laya
-      args:
-        TORCH_INDEX: cu130
-        TORCH_VERSION: "2.14.0"
-    profiles: ["laya,gpu"]
-    env_file: [compose/laya.env]
-    environment:
-      LAYA_DEVICE: cuda
-    volumes:
-      - model-weights:/weights
-    healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 180s
-    depends_on:
-      init-weights:
-        condition: service_completed_successfully
-    expose: ["8000"]
-    networks:
-      default:
-        aliases: [model-server]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: ["gpu"]
+    # Uncomment to reach laya from the host (e.g. for local dev):
+    # ports:
+    #   - "8000:8000"
 
   # ── archivist ───────────────────────────────────────────────────────────────
   # Always connects to http://model-server:8000 — the active model service
   # registers that DNS alias on the internal network.
-  # Set ARCHIVIST_MODEL=laya when using COMPOSE_PROFILES=laya[,gpu].
+  # Set ARCHIVIST_MODEL=laya when using COMPOSE_PROFILES=laya.
   archivist:
     build:
       context: .
@@ -148,13 +94,7 @@ services:
       von:
         condition: service_healthy
         required: false
-      von-gpu:
-        condition: service_healthy
-        required: false
       laya:
-        condition: service_healthy
-        required: false
-      laya-gpu:
         condition: service_healthy
         required: false
     environment:

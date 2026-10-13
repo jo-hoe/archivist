@@ -97,11 +97,12 @@ Create `compose/<name>.env` (model server environment — port, device, cache di
 HF_HOME=/weights/hub
 ```
 
-Add two profile services to `docker-compose.yml` — one for CPU, one for GPU —
-following the exact same pattern as `laya` / `laya-gpu`. Both must:
+Add two profile services to `docker-compose.yml` — one for CPU, one for GPU — following the exact same pattern as `laya`. Both must:
 - Register `model-server` as a network alias so archivist always finds them at `http://model-server:8000`.
 - Depend on `init-weights` completing successfully.
 - Include a healthcheck against `http://localhost:8000/health`.
+
+GPU acceleration is handled via environment variables in `compose/<name>.env` (e.g. `<NAME>_DEVICE=cuda`), not by a separate image. If your model requires a different image for CUDA, add a separate profile service for that case — see `compose/von.env` for the pattern.
 
 Activate with:
 ```bash

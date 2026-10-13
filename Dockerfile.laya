@@ -1,16 +1,12 @@
-# Build laya directly from its GitHub source with the CPU torch index.
-# Switch TORCH_INDEX to cu130 (and LAYA_DEVICE to cuda) for NVIDIA GPU.
-FROM python:3.11-slim AS base
+FROM python:3.11-slim
 
-ARG TORCH_INDEX=cpu
-ARG TORCH_VERSION=2.14.0
+# laya[serve] pulls in torch as a dependency; let pip resolve the version.
+# For NVIDIA GPU builds pass --build-arg TORCH_EXTRA="--index-url https://download.pytorch.org/whl/cu130"
+ARG TORCH_EXTRA=""
 
-# Install laya with its HTTP server extras, using the requested torch build.
-RUN pip install --no-cache-dir \
-    "torch==${TORCH_VERSION}" --index-url "https://download.pytorch.org/whl/${TORCH_INDEX}" \
-    "laya[serve]"
+RUN pip install --no-cache-dir "laya[serve]" ${TORCH_EXTRA}
 
-# Run as a non-root user (matches the convention of the official laya image).
+# Run as a non-root user (uid 1001, consistent with the weights volume ownership).
 RUN useradd -u 1001 -r -s /bin/false laya
 USER 1001
 
@@ -19,7 +15,7 @@ ENV LAYA_HOST=0.0.0.0 \
     LAYA_DEVICE=auto \
     LAYA_PRELOAD=1 \
     LAYA_DEFAULT_MODEL=multilingual \
-    HF_HOME=/home/laya/.cache/huggingface
+    HF_HOME=/weights/hub
 
 EXPOSE 8000
 CMD ["laya-serve"]
