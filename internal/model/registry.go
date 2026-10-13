@@ -35,6 +35,14 @@ type Config struct {
 // factory builds a System1 from a Config.
 type factory func(Config) (System1, error)
 
+// registry maps lowercase model names to their factory functions.
+// To add a new model:
+//
+//  1. Create internal/model/<name>.go implementing newName(Config) (System1, error).
+//  2. Add an entry here: "name": newName.
+//  3. Add compose/<name>.env and two profile services (CPU + GPU) in docker-compose.yml.
+//
+// The CLI, config validation, and wire transport require no further changes.
 var registry = map[string]factory{
 	"von":  newVon,
 	"laya": newLaya,

@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+# laya[serve] pulls in torch as a dependency; let pip resolve the version.
+# For NVIDIA GPU builds pass --build-arg TORCH_EXTRA="--index-url https://download.pytorch.org/whl/cu130"
+ARG TORCH_EXTRA=""
+
+RUN pip install --no-cache-dir "laya[serve]" ${TORCH_EXTRA}
+
+# Run as a non-root user (uid 1001, consistent with the weights volume ownership).
+RUN useradd -u 1001 -r -s /bin/false laya
+USER 1001
+
+ENV LAYA_HOST=0.0.0.0 \
+    LAYA_PORT=8000 \
+    LAYA_DEVICE=cpu \
+    LAYA_PRELOAD=1 \
+    LAYA_DEFAULT_MODEL=multilingual \
+    HF_HOME=/weights
+
+EXPOSE 8000
+CMD ["laya-serve"]

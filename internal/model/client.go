@@ -5,14 +5,16 @@ import (
 	"fmt"
 )
 
-// client is the shared concrete System1 implementation. von and laya differ
-// only in Config (capabilities, encoder, request extras), so the typed<->wire
-// mapping lives here once.
+// client is the shared concrete System1 implementation. It is model-agnostic:
+// all wire-format differences are handled by the injected requestBuilder and
+// responseDecoder. Adding a new model never requires editing this file.
 type client struct {
-	name   string
-	caps   Capabilities
-	trans  *Transport
-	extras requestExtras
+	name    string
+	caps    Capabilities
+	trans   *Transport
+	extras  requestExtras
+	builder requestBuilder
+	decoder responseDecoder
 }
 
 func (c *client) Name() string               { return c.name }
@@ -22,8 +24,8 @@ func (c *client) Choice(ctx context.Context, state State, q ChoiceQuestion) (Cho
 	if len(q.Options) == 0 {
 		return ChoiceAnswer{}, ErrEmptyChoice
 	}
-	wq := wireQuestion{Type: wireTypeChoice, Instructions: q.Instructions, Criteria: q.Criteria}
-	ans, err := c.trans.ask(ctx, state, wq, c.extras)
+	wq := c.builder.buildChoice(q)
+	ans, err := c.trans.ask(ctx, state, wq, c.extras, c.decoder)
 	if err != nil {
 		return ChoiceAnswer{}, err
 	}
@@ -38,13 +40,8 @@ func (c *client) Choice(ctx context.Context, state State, q ChoiceQuestion) (Cho
 }
 
 func (c *client) Noul(ctx context.Context, state State, q NoulQuestion) (NoulAnswer, error) {
-	wq := wireQuestion{Type: wireTypeNoul, Instructions: q.Instructions}
-	if q.Criteria != "" {
-		// The /v1/systemone protocol requires criteria to be a dictionary for
-		// noul questions; wrap a plain description string into one.
-		wq.Criteria = map[string]string{"description": q.Criteria}
-	}
-	ans, err := c.trans.ask(ctx, state, wq, c.extras)
+	wq := c.builder.buildNoul(q)
+	ans, err := c.trans.ask(ctx, state, wq, c.extras, c.decoder)
 	if err != nil {
 		return NoulAnswer{}, err
 	}
@@ -61,8 +58,8 @@ func (c *client) Noul(ctx context.Context, state State, q NoulQuestion) (NoulAns
 }
 
 func (c *client) Score(ctx context.Context, state State, q ScoreQuestion) (ScoreAnswer, error) {
-	wq := wireQuestion{Type: wireTypeScore, Instructions: q.Instructions, Criteria: q.Criteria}
-	ans, err := c.trans.ask(ctx, state, wq, c.extras)
+	wq := c.builder.buildScore(q)
+	ans, err := c.trans.ask(ctx, state, wq, c.extras, c.decoder)
 	if err != nil {
 		return ScoreAnswer{}, err
 	}

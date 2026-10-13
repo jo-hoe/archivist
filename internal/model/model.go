@@ -72,11 +72,12 @@ type ChoiceAnswer struct {
 	Probabilities map[string]float64
 }
 
-// NoulQuestion asks a yes/no question. Criteria is optional but recommended —
-// some models (von) warn that a bare yes/no without criteria is weakly grounded.
+// NoulQuestion asks a yes/no question. The Instructions field should contain
+// all context needed — both the question and any description of what "yes"
+// means. The /v1/systemone spec makes criteria optional for noul; embedding
+// the description in Instructions is cleaner and works across all models.
 type NoulQuestion struct {
 	Instructions string
-	Criteria     string
 }
 
 // NoulAnswer is the result of a NoulQuestion.

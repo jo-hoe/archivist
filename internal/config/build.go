@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jo-hoe/archivist/internal/descent"
 	"github.com/jo-hoe/archivist/internal/fileops"
@@ -37,12 +38,26 @@ func Build(ctx context.Context, c Config) (*Built, error) {
 		return nil, fmt.Errorf("create target %q: %w", target, err)
 	}
 
+	// Resolve source so we can detect overlap with the target tree.
+	absSource, err := filepath.Abs(c.Source)
+	if err != nil {
+		return nil, fmt.Errorf("resolve source: %w", err)
+	}
+
+	// Guard: target inside recursive source would cause the indexer to walk
+	// files that are being moved mid-run.
+	if c.Recursive && isInsideOrEqual(target, absSource) {
+		return nil, fmt.Errorf(
+			"target %q is inside source %q with --recursive: this would index files being moved; "+
+				"use a non-recursive source or move the target outside the source tree", target, absSource)
+	}
+
 	m, err := model.New(c.modelConfig())
 	if err != nil {
 		return nil, err
 	}
 
-	prov, err := c.taxonomyProvider(target)
+	prov, err := c.taxonomyProvider(target, absSource)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +88,15 @@ func Build(ctx context.Context, c Config) (*Built, error) {
 	return &Built{Pipeline: p, Entries: entries, Model: m}, nil
 }
 
+// isInsideOrEqual reports whether candidate is equal to or a subdirectory of
+// base. Both paths must be absolute and cleaned.
+func isInsideOrEqual(candidate, base string) bool {
+	base = filepath.Clean(base) + string(filepath.Separator)
+	candidate = filepath.Clean(candidate)
+	return candidate == filepath.Clean(base[:len(base)-1]) ||
+		strings.HasPrefix(candidate+string(filepath.Separator), base)
+}
+
 func (c Config) modelConfig() model.Config {
 	return model.Config{
 		Name:             c.Model.Name,
@@ -86,7 +110,7 @@ func (c Config) modelConfig() model.Config {
 	}
 }
 
-func (c Config) taxonomyProvider(target string) (taxonomy.Provider, error) {
+func (c Config) taxonomyProvider(target, absSource string) (taxonomy.Provider, error) {
 	if c.Taxonomy.Strategy == TaxonomyDeclared {
 		data, err := os.ReadFile(c.Taxonomy.DeclaredFile)
 		if err != nil {
@@ -98,7 +122,13 @@ func (c Config) taxonomyProvider(target string) (taxonomy.Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return taxonomy.NewScanProvider(target, descriptions), nil
+	prov := taxonomy.NewScanProvider(target, descriptions)
+	// If the source directory is inside the target tree, exclude it so archivist
+	// never offers the input folder as a filing destination.
+	if isInsideOrEqual(absSource, target) {
+		prov.ExcludeDirs = []string{absSource}
+	}
+	return prov, nil
 }
 
 func (c Config) tagger() (tagging.Strategy, error) {

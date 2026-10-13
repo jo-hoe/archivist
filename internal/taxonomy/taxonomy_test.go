@@ -102,6 +102,30 @@ func mustMkdir(t *testing.T, path string) {
 	}
 }
 
+func TestScanProviderExcludesDirs(t *testing.T) {
+	root := t.TempDir()
+	mustMkdir(t, filepath.Join(root, "input"))
+	mustMkdir(t, filepath.Join(root, "invoices"))
+	mustMkdir(t, filepath.Join(root, "insurance"))
+
+	p := NewScanProvider(root, nil)
+	p.ExcludeDirs = []string{filepath.Join(root, "input")}
+
+	children, err := p.Children(context.Background(), &Node{Path: ""})
+	if err != nil {
+		t.Fatalf("Children: %v", err)
+	}
+	got := names(children)
+	for _, n := range got {
+		if n == "input" {
+			t.Fatalf("excluded dir 'input' should not appear in children, got: %v", got)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 children (invoices, insurance), got: %v", got)
+	}
+}
+
 func names(nodes []*Node) []string {
 	out := make([]string, len(nodes))
 	for i, n := range nodes {
