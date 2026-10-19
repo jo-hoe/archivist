@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # laya[serve] pulls in torch as a dependency; let pip resolve the version.
 # For NVIDIA GPU builds pass --build-arg TORCH_EXTRA="--index-url https://download.pytorch.org/whl/cu130"
